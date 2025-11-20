@@ -60,10 +60,27 @@ def plot(screen, x_vals, y_vals):
         else:
             screen.print_at("-", xpix, get_screen_index(0, y_val_max, max_y, y_val_min, min_y))
 
-
+    cum_val = 0
+    cum_n = 0
+    bucket_interval = len(x_vals) / (max_x-min_x)
+    bucket_i = 1
     for i in range(len(x_vals)):
-        screen.print_at("*", get_screen_index(x_vals[i], x_val_max, max_x, x_val_min, min_x), 
-                             get_screen_index(y_vals[i], y_val_max, max_y, y_val_min, min_y))
+        # screen.print_at("*", get_screen_index(x_vals[i], x_val_max, max_x, x_val_min, min_x), 
+        #                      get_screen_index(y_vals[i], y_val_max, max_y, y_val_min, min_y))
+        if len(x_vals) > (max_x - min_x):
+            if (math.floor(i / bucket_interval) > bucket_i):
+                screen.print_at("*", bucket_i + min_x, 
+                                     get_screen_index(cum_val/cum_n, y_val_max, max_y, y_val_min, min_y))
+                cum_val = y_vals[i]
+                cum_n = 1
+                bucket_i += 1
+            else:
+                cum_val += y_vals[i]
+                cum_n += 1
+
+        else:
+            screen.print_at("*", get_screen_index(x_vals[i], x_val_max, max_x, x_val_min, min_x), 
+                                 get_screen_index(y_vals[i], y_val_max, max_y, y_val_min, min_y))
 
     
 
@@ -94,7 +111,10 @@ def time_series(screen: Screen):
         plot(screen, x, y)
 
         screen.refresh()
-        time.sleep(0.025)
+        if len(y) > 500:
+            time.sleep(0.5)
+        else:
+            time.sleep(0.01)
 
         # Quit on 'q'
         event = screen.get_key()
