@@ -4,54 +4,38 @@ import time
 import random
 from datetime import datetime
 
-def plot(screen, x_vals, y_vals):
 def draw_graph(screen, x_vals, y_vals):
     if len(x_vals) != len(y_vals):
         return
 
-    padding = 2
-    y_axis = 3
+    # ---- initialize variables ---- TODO: Abstract these into arguments or class data members to clean this up
+    # -- define the axes position
+    padding = 1
+    y_axis = 5
     x_axis = 3
     
+    # -- define the graph area
     min_x = padding + y_axis 
     max_x = screen.width - padding - 1
-    min_y = screen.height - padding - x_axis - 1
+    min_y = screen.height - padding
     max_y = padding
 
+    # -- get the min max values of x and y
     y_val_max = max(y_vals)
     y_val_min = min(y_vals)
     if y_val_max >= 0 and y_val_min >= 0:
         y_val_min = -1
-    # if len(y_vals) == 1:
-    #     if y_val_max > 0:
-    #         y_val_min = 0
-    #     else:
-    #         y_val_max = 0
     
     x_val_max = max(x_vals)
     x_val_min = min(x_vals)
     if x_val_max > 0 and x_val_min > 0:
         x_val_min = 0
-    # if len(x_vals) == 1:
-    #     if x_val_max > 0:
-    #         x_val_min = 0
-    #     else:
-    #         x_val_max = 0
     
 
-    y_label_interval = 8
-    x_label_interval = 10
-    n_y_labels = abs(max_y - min_y) // y_label_interval
-    n_x_labels = abs(max_x - min_x) // x_label_interval
-
-    # ---- draw plot --
+    # ---- draw braille plot first in the viewable area ----
     plot_size_x = max_x - min_x - 1
     plot_size_y = abs(max_y - min_y) - 1
-    cum_val = 0
-    cum_n = 0
-    # bucket_interval = len(x_vals) / plot_size_x
-    # bucket_i = 1
-    # bucket_vals = [-1]*plot_size_x
+
     braille_size_x = plot_size_x*2
     braille_size_y = plot_size_y*4
     braille_grid = [False]*(braille_size_x*braille_size_y)
@@ -79,68 +63,51 @@ def draw_graph(screen, x_vals, y_vals):
         for j in range(plot_size_y):
             b_x = i*2
             b_y = j*4
-            # braille_cells = [ coordinate_to_index(b_x, b_y   ,braille_size_x), coordinate_to_index(b_x+1, b_y   ,braille_size_x),
-            #                   coordinate_to_index(b_x, b_y+1 ,braille_size_x), coordinate_to_index(b_x+1, b_y+1 ,braille_size_x),
-            #                   coordinate_to_index(b_x, b_y+2 ,braille_size_x), coordinate_to_index(b_x+1, b_y+2 ,braille_size_x),
-            #                   coordinate_to_index(b_x, b_y+3 ,braille_size_x), coordinate_to_index(b_x+1, b_y+3 ,braille_size_x) ]
             braille_cells = []
 
-            if braille_grid[coordinate_to_index(b_x, b_y   ,braille_size_x)] == True:
-                braille_cells.append(1) 
-            if braille_grid[coordinate_to_index(b_x, b_y+1 ,braille_size_x)] == True:
-                braille_cells.append(2) 
-            if braille_grid[coordinate_to_index(b_x, b_y+2 ,braille_size_x)] == True:
-                braille_cells.append(3) 
-            if braille_grid[coordinate_to_index(b_x+1, b_y   ,braille_size_x)] == True:
-                braille_cells.append(4) 
-            if braille_grid[coordinate_to_index(b_x+1, b_y+1   ,braille_size_x)] == True:
-                braille_cells.append(5) 
-            if braille_grid[coordinate_to_index(b_x+1, b_y+2   ,braille_size_x)] == True:
-                braille_cells.append(6) 
-            if braille_grid[coordinate_to_index(b_x, b_y+3   ,braille_size_x)] == True:
-                braille_cells.append(7) 
-            if braille_grid[coordinate_to_index(b_x+1, b_y+3   ,braille_size_x)] == True:
-                braille_cells.append(8) 
+            dot_offsets = [
+                (0, 0), (0, 1), (0, 2),
+                (1, 0), (1, 1), (1, 2),
+                (0, 3), (1, 3),
+            ]
+
+            for dot_num, (dx, dy) in enumerate(dot_offsets, start=1):
+                if braille_grid[coordinate_to_index(b_x + dx, b_y + dy, braille_size_x)]:
+                    braille_cells.append(dot_num)
 
             if len(braille_cells) > 0:
                 screen.print_at(braille(braille_cells), 
                                 min_x + 1 + i, max_y + j) 
-        # bucket_index = get_screen_index(x_vals[i], x_val_max, max_x, x_val_min, min_x)
-        # screen.print_at("*", get_screen_index(x_vals[i], x_val_max, max_x, x_val_min, min_x), 
-        #                      get_screen_index(y_vals[i], y_val_max, max_y, y_val_min, min_y))
-        # if len(x_vals) > (max_x - min_x):
-        #     if (math.floor(i / bucket_interval) > bucket_i):
-        #         bucket_vals.[bucket_i-1] = cum_val/cum_n
-        #         cum_val = y_vals[i]
-        #         cum_n = 1
-        #         bucket_i += 1
-        #     else:
-        #         cum_val += y_vals[i]
-        #         cum_n += 1
 
-        # else:
-        #     bucket_vals[get_screen_index(x_vals[i], x_val_max, max_x, x_val_min, min_x)] = y_vals[i]
+    
+    # ---- Get key positions for labels on x and y axes
+    x_0_pos = get_screen_index(0, x_val_max, max_x-1, x_val_min, min_x)
+    y_0_pos = get_screen_index(0, y_val_max, max_y, y_val_min, min_y-1)
+    y_latest_pos = get_screen_index(y_vals[-1], y_val_max, max_y, y_val_min, min_y-1)
 
-        
+    n_x_labels = 10
+    x_label_interval = plot_size_x / n_x_labels
+    x_label_pos = [int(i*x_label_interval) for i in range(1,10)] # intentionally skip 0 since 0 is indicated by the y axis position
+    x_label_pos.append(plot_size_x)
+
     # --- Draw Y-axis (vertical) ---
-    for ypix in range(padding, screen.height-padding):
-        screen.print_at("|", get_screen_index(0, x_val_max, max_x, x_val_min, min_x), ypix)
-        if ypix % y_label_interval == 0:
-            n = ypix / y_label_interval - 1
-            # screen.print_at("-", get_screen_index(0, x_val_max, max_x, x_val_min, min_x), ypix)
-            screen.print_at(f"{((n_y_labels-n)*(y_val_max - y_val_min)/n_y_labels + y_val_min):3.1f}", get_screen_index(0, x_val_max, max_x, x_val_min, min_x)-y_axis, ypix)
-        # else:
-        #     screen.print_at("|", get_screen_index(0, x_val_max, max_x, x_val_min, min_x), ypix)
+    for ypix in range(max_y, min_y):
+        screen.print_at("|", x_0_pos, ypix)
+
     # --- Draw X-axis (horizontal) ---
-    y_0_pos = get_screen_index(0, y_val_max, max_y, y_val_min, min_y)
-    for xpix in range(padding, screen.width-padding):
+    for xpix in range(min_x, max_x):
         screen.print_at("-", xpix, y_0_pos)
-        if xpix % x_label_interval == 0:
-            n = xpix / x_label_interval + 1
-            # screen.print_at("|", xpix, get_screen_index(0, y_val_max, max_y, y_val_min, min_y))
-            screen.print_at(f"{(n*(x_val_max - x_val_min)/n_x_labels + x_val_min):3.1f}", xpix, y_0_pos+1)
-        # else:
-        #     screen.print_at("-", xpix, get_screen_index(0, y_val_max, max_y, y_val_min, min_y))
+
+    # ---- Add Y Labels -----
+    screen.print_at(f"{0.0:3.1f}", x_0_pos-y_axis, y_0_pos)
+    screen.print_at(f"{y_val_max:3.1f}", x_0_pos-y_axis, max_y)
+    screen.print_at(f"{y_val_min:3.1f}", x_0_pos-y_axis, min_y)
+    screen.print_at(f"{y_vals[-1]:3.1f}", x_0_pos-y_axis, y_latest_pos)
+
+    # ---- Add X Labels -----
+    for xlabel in x_label_pos:
+        screen.print_at(f"{(xlabel/plot_size_x)*(x_val_max-x_val_min) + x_val_min:3.3f}", xlabel, y_0_pos+1)
+
 
 def coordinate_to_index(x, y, width):
     return x + y*width
