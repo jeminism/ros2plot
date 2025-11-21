@@ -143,18 +143,19 @@ def time_series(screen: Screen):
                 y.append(0.0)
             else:
                 if y[-1] < 0:
-                    y.append(y[-1] + random.randrange(-5, 10))
+                    y.append(y[-1] + random.randrange(-8, 10))
                 else:
-                    y.append(y[-1] + random.randrange(-10, 10))
+                    y.append(y[-1] + random.randrange(-10, 8))
             x.append(datetime.now().timestamp() - now)
         
-        plot(screen, x, y)
+        draw_graph(screen, x, y)
 
         screen.refresh()
-        if len(y) > 500:
-            time.sleep(0.5)
-        else:
-            time.sleep(0.01)
+        time.sleep(0.05)
+        # if len(y) > 500:
+        #     time.sleep(0.5)
+        # else:
+        #     time.sleep(0.01)
 
         # Quit on 'q'
         event = screen.get_key()
