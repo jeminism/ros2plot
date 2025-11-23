@@ -1,7 +1,7 @@
-from lines import VerticalLine, HorizontalLine
-from plot import PlotBraille, PlotXY
-from asciimatics.screen import Screen
+from drawables.lines import VerticalLine, HorizontalLine
+from drawables.plot import PlotBraille, PlotXY
 from utils.graph_math import get_mapped_value, min_max
+from asciimatics.screen import Screen
 
 class GraphXY:
     def __init__(self, width:int, height:int, plot_hd = True, draw_lines = True, y_label_padding=5):

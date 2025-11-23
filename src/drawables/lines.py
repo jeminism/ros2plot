@@ -1,4 +1,4 @@
-from drawable import Drawable
+from drawables.drawable import Drawable
 
 class VerticalLine(Drawable):
     def __init__(self, height:int):

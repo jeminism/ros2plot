@@ -1,5 +1,5 @@
-from drawable import Drawable
-from grid import Grid
+from drawables.drawable import Drawable
+from utils.grid import Grid
 from utils.graph_math import get_mapped_value, min_max, bresenham
 
 

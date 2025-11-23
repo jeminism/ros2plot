@@ -1,4 +1,4 @@
-from grid import Grid
+from utils.grid import Grid
 from asciimatics.screen import Screen
 
 # Implement a generic Drawable class which manages a buffer of characters for rendering.
