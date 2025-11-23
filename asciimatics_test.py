@@ -16,7 +16,7 @@ def draw_graph(screen, x_vals, y_vals):
     
     # -- define the graph area
     min_x = padding + y_axis 
-    max_x = screen.width - padding - 1
+    max_x = screen.width - padding - 4
     min_y = screen.height - padding
     max_y = padding
 
@@ -83,12 +83,13 @@ def draw_graph(screen, x_vals, y_vals):
     # ---- Get key positions for labels on x and y axes
     x_0_pos = get_screen_index(0, x_val_max, max_x-1, x_val_min, min_x)
     y_0_pos = get_screen_index(0, y_val_max, max_y, y_val_min, min_y-1)
+    x_latest_pos = get_screen_index(x_vals[-1], x_val_max, max_x-1, x_val_min, min_x)
     y_latest_pos = get_screen_index(y_vals[-1], y_val_max, max_y, y_val_min, min_y-1)
 
     n_x_labels = 10
     x_label_interval = plot_size_x / n_x_labels
-    x_label_pos = [int(i*x_label_interval) for i in range(1,10)] # intentionally skip 0 since 0 is indicated by the y axis position
-    x_label_pos.append(plot_size_x)
+    # x_label_pos = [int(i*x_label_interval) for i in range(1,10)] # intentionally skip 0 since 0 is indicated by the y axis position
+    # x_label_pos.append(plot_size_x)
 
     # --- Draw Y-axis (vertical) ---
     for ypix in range(max_y, min_y):
@@ -105,8 +106,10 @@ def draw_graph(screen, x_vals, y_vals):
     screen.print_at(f"{y_vals[-1]:3.1f}", x_0_pos-y_axis, y_latest_pos)
 
     # ---- Add X Labels -----
-    for xlabel in x_label_pos:
-        screen.print_at(f"{(xlabel/plot_size_x)*(x_val_max-x_val_min) + x_val_min:3.3f}", xlabel, y_0_pos+1)
+    screen.print_at(f"{x_vals[-1]:3.1f}", x_latest_pos, y_0_pos+1)
+    screen.print_at(f"{x_val_max:3.1f}", max_x-1, y_0_pos+1)
+    # for xlabel in x_label_pos:
+    #     screen.print_at(f"{(xlabel/plot_size_x)*(x_val_max-x_val_min) + x_val_min:3.3f}", xlabel, y_0_pos+1)
 
 
 def coordinate_to_index(x, y, width):
