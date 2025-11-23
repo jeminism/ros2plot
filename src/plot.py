@@ -1,4 +1,5 @@
 from drawable import Drawable
+from grid import Grid
 from utils.graph_math import get_mapped_value, min_max, bresenham
 
 
@@ -32,19 +33,19 @@ class PlotXY(Drawable):
         for i in range(n_vals):
             y_index = get_mapped_value(y_values[i], y_bound_max, 0, y_bound_min, self._height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
             x_index = get_mapped_value(x_values[i], x_bound_max, self._width-1, x_bound_min, 0)
-            if x_index > self._width-1 or x_index < 0:
-                raise ValueError(f"X Mapped value error. mapped value: {x_index}. ref value: {x_values[i]}, max_val: {x_bound_max}, max_i: {self._width-1}, min_val: {x_bound_min}, min_i: 0.")
-            if y_index > self._height-1 or y_index < 0:
-                raise ValueError(f"Y Mapped value error. mapped value: {y_index}. ref value: {y_values[i]}, max_val: {y_bound_max}, max_i: {self._height-1}, min_val: {y_bound_min}, min_i: 0.")
+            # if x_index > self._width-1 or x_index < 0:
+            #     raise ValueError(f"X Mapped value error. mapped value: {x_index}. ref value: {x_values[i]}, max_val: {x_bound_max}, max_i: {self._width-1}, min_val: {x_bound_min}, min_i: 0.")
+            # if y_index > self._height-1 or y_index < 0:
+            #     raise ValueError(f"Y Mapped value error. mapped value: {y_index}. ref value: {y_values[i]}, max_val: {y_bound_max}, max_i: {self._height-1}, min_val: {y_bound_min}, min_i: 0.")
             if (i > 0 and self._interpolate):
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
                     p_y = pt[1]
                     p_x = pt[0]
-                    if p_x > self._width-1 or p_x < 0:
-                        raise ValueError(f"X Mapped value error. mapped value: {p_x}. y0: {prior_y}, x0: {prior_x}, y1: {y_index}, x1: {x_index}")
-                    if p_y > self._height-1 or p_y < 0:
-                        raise ValueError(f"Y Mapped value error. mapped value: {p_y}. y0: {prior_y}, x0: {prior_x}, y1: {y_index}, x1: {x_index}")
-                    self.set_value(self.to_index(pt[0], pt[1]), "+", s = f"x: {pt[0]}, y: {pt[1]}, i: {i}")
+                    # if p_x > self._width-1 or p_x < 0:
+                    #     raise ValueError(f"X Mapped value error. mapped value: {p_x}. y0: {prior_y}, x0: {prior_x}, y1: {y_index}, x1: {x_index}")
+                    # if p_y > self._height-1 or p_y < 0:
+                    #     raise ValueError(f"Y Mapped value error. mapped value: {p_y}. y0: {prior_y}, x0: {prior_x}, y1: {y_index}, x1: {x_index}")
+                    self.set_value(self.to_index(pt[0], pt[1]), "+")
             else:
                 self.set_value(self.to_index(x_index, y_index), "+")
             prior_x = x_index
@@ -66,7 +67,7 @@ class PlotBraille(PlotXY):
 
         width = self._width*2
         height = self._height*4
-        braille_grid = [False]*width*height
+        braille_grid = Grid(width, height)
         prior_x = -1
         prior_y = -1
         for i in range(n_vals):
@@ -74,9 +75,9 @@ class PlotBraille(PlotXY):
             x_index = get_mapped_value(x_values[i], x_bound_max, width-1, x_bound_min, 0)
             if (i > 0 and self._interpolate):
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
-                    braille_grid[self.to_index(pt[0], pt[1], width)] = True
+                    braille_grid.set_value(braille_grid.to_index(pt[0], pt[1]), True)
             else:
-                braille_grid[self.to_index(x_index, y_index)] = True
+                braille_grid.set_value(braille_grid.to_index(x_index, y_index), True)
             prior_x = x_index
             prior_y = y_index
         
@@ -94,7 +95,7 @@ class PlotBraille(PlotXY):
                 ]
 
                 for dot_num, (dx, dy) in enumerate(dot_offsets, start=1):
-                    if braille_grid[self.to_index(b_x + dx, b_y + dy, width)]:
+                    if braille_grid.at(braille_grid.to_index(b_x + dx, b_y + dy)):
                         braille_cells.append(dot_num)
 
                 if len(braille_cells) > 0:

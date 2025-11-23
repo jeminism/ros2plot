@@ -59,10 +59,9 @@ class GraphXY:
         self._y_axis.draw(screen, x_draw+y_axis_location, y_draw)
         self._x_axis.draw(screen, x_draw, y_draw+x_axis_location)
 
-        #---- draw labels
+        #---- draw labels. only print latest, min, max
         y_latest_location = get_mapped_value(y_values[-1], y_val_max, 0, y_val_min, self._height-1)
         y_label_x_location = max(x_draw, x_draw+y_axis_location-2)
-
         screen.print_at(f"{y_values[-1]:3.2f}", y_label_x_location, y_draw+y_latest_location)
         screen.print_at(f"{y_val_max:3.2f}", y_label_x_location, y_draw)
         screen.print_at(f"{y_val_min:3.2f}", y_label_x_location, y_draw+self._height-1)

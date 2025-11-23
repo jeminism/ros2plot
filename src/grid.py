@@ -28,7 +28,13 @@ class Grid:
     # def set_value(self, x: int, y: int, value):
     #     self.set(to_index(x, y), value)
 
-    def set_value(self, index: int, value, s=""):
+    def set_value(self, index: int, value):
         if index >= len(self._grid):
-            raise ValueError(f"[Grid] index out of range ({len(self._grid)}), got {index}. err: {s}")
+            raise ValueError(f"[Grid] index out of range ({len(self._grid)}), got {index}")
         self._grid[index] = value
+    
+    def at(self, index):
+        if index >= len(self._grid):
+            raise ValueError(f"[Grid] index out of range ({len(self._grid)}), got {index}")
+        return self._grid[index]
+
