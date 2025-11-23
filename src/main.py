@@ -12,7 +12,7 @@ def time_series(screen: Screen):
     y = []
     now = datetime.now().timestamp()
 
-    graph = GraphXY(screen.width - 10, screen.height-8, plot_hd=True)
+    graph = GraphXY(screen.width-8, screen.height-2, plot_hd=True)
 
     while True:
         screen.clear()
@@ -27,7 +27,7 @@ def time_series(screen: Screen):
                     y.append(y[-1] + random.randrange(-10, 8))
             x.append(datetime.now().timestamp() - now)
         
-        graph.draw(screen, 5, 4, x, y)
+        graph.draw(screen, 2, 1, x, y)
         #plot.draw(screen, 5, 4)
 
         screen.refresh()
