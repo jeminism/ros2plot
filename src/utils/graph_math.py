@@ -17,6 +17,20 @@ def min_max(values: list):
             max = val
     return min, max
 
+def multi_min_max(data: list[list]):
+    min = 0
+    max = 0
+    try:
+        for values in data:
+            for val in values:
+                if val < min:
+                    min = val
+                elif val > max:
+                    max = val
+    except TypeError as e:
+        raise TypeError(f"{e}. val: {val}, min: {min}, max: {max}")
+    return min, max
+
 def bresenham(x1: int, y1: int, x0: int, y0: int) -> tuple[tuple[int, int]]:
     points = []
 

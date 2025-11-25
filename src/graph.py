@@ -1,7 +1,15 @@
 from drawables.lines import VerticalLine, HorizontalLine
 from drawables.plot import PlotBraille, PlotXY
-from utils.graph_math import get_mapped_value, min_max
+from utils.graph_math import get_mapped_value, min_max, multi_min_max
 from asciimatics.screen import Screen
+
+COLOURS=[Screen.COLOUR_RED,
+         Screen.COLOUR_GREEN,
+         Screen.COLOUR_YELLOW,
+         Screen.COLOUR_BLUE,
+         Screen.COLOUR_MAGENTA,
+         Screen.COLOUR_CYAN]
+NUM_COLOURS = len(COLOURS)        
 
 class GraphXY:
     def __init__(self, width:int, height:int, plot_hd = True, draw_lines = True, y_label_padding=5):
@@ -12,15 +20,15 @@ class GraphXY:
         self._height = height
         self._width = width
     
-    def draw(self, screen: Screen, x_draw: int, y_draw: int, x_values: list, y_values: list, x_bound_min=None, x_bound_max=None, y_bound_min=None, y_bound_max=None):
-        if not all(isinstance(x, (int, float)) for x in x_values) and not all(isinstance(y, (int, float)) for y in y_values):
+    def draw(self, screen: Screen, x_draw: int, y_draw: int, x_values: list, y_values: list[list], x_bound_min=None, x_bound_max=None, y_bound_min=None, y_bound_max=None):
+        if not all(isinstance(x, (int, float)) for x in x_values) and not (all(isinstance(y, (int, float)) for y in y_data) for y_data in y_values):
             raise TypeError("All elements must be numeric")
         
-        if len(x_values) != len(y_values):
-            raise ValueError("X and Y axis data must be of same length")
+        # if len(x_values) != len(y_values):
+        #     raise ValueError("X and Y axis data must be of same length")
 
         x_val_min, x_val_max = min_max(x_values)
-        y_val_min, y_val_max = min_max(y_values)
+        y_val_min, y_val_max = multi_min_max(y_values)
         
         if x_val_min == x_val_max:
             if x_val_min < 0:
@@ -48,11 +56,13 @@ class GraphXY:
             y_val_min = y_bound_min
         if (y_bound_max):
             y_val_max = y_bound_max
-        #---- update plot data
-        self._plot.plot(x_values, y_values, x_val_min, x_val_max, y_val_min, y_val_max)
         
-        #---- draw stuff
-        self._plot.draw(screen, x_draw, y_draw)
+        for i in range(len(y_values)):
+            c = COLOURS[i%NUM_COLOURS]
+            #---- update plot data
+            self._plot.plot(x_values, y_values[i], x_val_min, x_val_max, y_val_min, y_val_max)
+            #---- draw stuff
+            self._plot.draw(screen, x_draw, y_draw, colour=c)
 
         y_axis_location = get_mapped_value(0 if x_val_min < 0 else x_val_min, x_val_max, self._width-1, x_val_min, 0)
         x_axis_location = get_mapped_value(0 if y_val_min < 0 else y_val_min, y_val_max, 0, y_val_min, self._height-1)
@@ -60,9 +70,11 @@ class GraphXY:
         self._x_axis.draw(screen, x_draw, y_draw+x_axis_location)
 
         #---- draw labels. only print latest, min, max
-        y_latest_location = get_mapped_value(y_values[-1], y_val_max, 0, y_val_min, self._height-1)
         y_label_x_location = max(x_draw, x_draw+y_axis_location-2)
-        screen.print_at(f"{y_values[-1]:3.2f}", y_label_x_location, y_draw+y_latest_location)
+        for y_data in y_values:
+            y_latest_location = get_mapped_value(y_data[-1], y_val_max, 0, y_val_min, self._height-1)
+            screen.print_at(f"{y_data[-1]:3.2f}", y_label_x_location, y_draw+y_latest_location)
+
         screen.print_at(f"{y_val_max:3.2f}", y_label_x_location, y_draw)
         screen.print_at(f"{y_val_min:3.2f}", y_label_x_location, y_draw+self._height-1)
 
