@@ -1,6 +1,6 @@
 
 import rclpy
-from rclpy.executors import ExternalShutdownException
+from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.node import Node
 from rosidl_runtime_py.utilities import get_message
@@ -11,8 +11,7 @@ from asciimatics.exceptions import ResizeScreenError
 import sys
 
 from widgets.graph import GraphXY, GraphData
-
-from threading import Thread
+import threading
 
 NUMERIC_TYPES = (int, float)
 
@@ -50,13 +49,13 @@ class TopicIntrospector:
 
 
 class AnySubscriber(Node):
-    def __init__(self, screen: Screen, topic_name, topic_type):
+    def __init__(self, topic_name, topic_type):
         super().__init__("any_sub")
         self._introspector = TopicIntrospector()
         self._graph_data = GraphData()
-        self._graph_data["paused"] = True
+        self._graph_data.paused = True
         self._timestamps = []
-        self._screen = screen
+        # self._screen = screen
         self._subscription = self.create_subscription(
                                 topic_type,
                                 topic_name,
@@ -66,13 +65,12 @@ class AnySubscriber(Node):
         self._new = False
 
         self._timer_callback_group = MutuallyExclusiveCallbackGroup()
-        self._timer = self.create_timer(0.05, self.update_graph, callback_group=self._timer_callback_group)
+        self._timer = self.create_timer(0.5, self.update_graph, callback_group=self._timer_callback_group)
 
-        self._render_callback_group = MutuallyExclusiveCallbackGroup()
-        self._render = self.create_timer(0.05, self.render, callback_group=self._render_callback_group)
+        # self._render_callback_group = MutuallyExclusiveCallbackGroup()
+        # self._render = self.create_timer(0.05, self.render, callback_group=self._render_callback_group)
 
-        self._graph = GraphXY(self._screen, 4, 1, screen.width-8, screen.height-2, self._graph_data, plot_hd=True)
-        self._scene = Scene([self._graph], duration=self._graph.stop_frame)
+        
 
     # def screen(self):
     #     try:
@@ -103,40 +101,51 @@ class AnySubscriber(Node):
         self._new = True
         if self._first_time == None:
             self._first_time = self.get_clock().now().nanoseconds
-        self._graph_data["x_values"].append(self.get_clock().now().nanoseconds - self._first_time)
+        self._graph_data.x_values.append(self.get_clock().now().nanoseconds - self._first_time)
         self._introspector.introspect(msg, "")
     
     def update_graph(self):
         if not self._new:
-            self._graph_data["paused"] = True
+            self._graph_data.paused = True
             return
         self._new = False
-        self._graph_data["paused"] = False
+        self._graph_data.paused = False
+        data = self._introspector.get_data()
         if len(data) == 0:
             raise ValueError("No numeric fields found!")
 
-        self._graph_data["y_values"] = [data[d] for d in self._introspector.get_data()]
+        self._graph_data.y_values = [data[d] for d in data]
 
     def get_graph_data(self):
         return self._graph_data
     
-    def render(self):
-        try:
-            self._screen.play([self._scene])
-        except ResizeScreenError:
-            pass
+    # def render(self):
+    #     try:
+    #         self._screen.play([self._scene])
+    #     except (KeyboardInterrupt, ExternalShutdownException):
+    #         return
+    #     except ResizeScreenError:
+    #         pass
 
 
+def ros_run(node, shutdown):
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
+    try:
+        executor.spin()
+    except (KeyboardInterrupt, ExternalShutdownException):
+        shutdown = True
+        return
 
-def screen_play(graph_data: GraphData):
+def screen_run(graph_data: GraphData, shutdown):
     with ManagedScreen() as screen:
-        graph = GraphXY(4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
-        scene = Scene([effect], duration=effect.stop_frame)
-        while True:
+        graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
+        while not shutdown:
             try:
-                screen.play(scenes)
+                screen.play([Scene([graph], duration=graph.stop_frame)])
             except ResizeScreenError:
-                continue
+                pass
+
 
 def main():
     args = sys.argv[1:]
@@ -150,6 +159,14 @@ def main():
 
     rclpy.init()
 
+    shutdown = False
+    anysub = AnySubscriber(topic_name, topic_type)
+
+    t = threading.Thread(target=ros_run, args=(anysub,shutdown), daemon=True)
+    t.start()
+
+    screen_run(anysub.get_graph_data(), shutdown)
+    t.join()
 
     # minimal_subscriber = AnySubscriber(topic_name, topic_type)
     
@@ -160,14 +177,18 @@ def main():
     # rclpy.spin(minimal_subscriber)
     # t.join()
 
+    # executor = MultiThreadedExecutor()
+    # with ManagedScreen() as screen:
+    #     minimal_subscriber = AnySubscriber(screen, topic_name, topic_type)
+    #     executor.add_node(minimal_subscriber)
+    #     try:
+    #         executor.spin()
+    #     except (KeyboardInterrupt, ExternalShutdownException):
+    #         pass
 
-    with ManagedScreen() as screen:
-        minimal_subscriber = AnySubscriber(screen, topic_name, topic_type)
-        while True:
-            try:
-                rclpy.spin(minimal_subscriber)
-            except ResizeScreenError:
-                continue
+    #     screen.close()
+
+    # print(GraphData().keys())
 
 if __name__ == '__main__':
     main()

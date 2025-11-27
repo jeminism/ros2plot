@@ -5,12 +5,15 @@ from utils.colour_palette import COLOURS, NUM_COLOURS
 from asciimatics.screen import Screen
 from asciimatics.effects import Effect
 
-from typing import TypedDict, List
+# from typing import TypedDict, List
+import attrs
 
-class GraphData(TypedDict):
-    x_values: List
-    y_values: List[List]
-    paused: bool
+@attrs.define
+class GraphData:
+    x_values: list = attrs.field(default=[])
+    y_values: list[list] = attrs.field(default=[])
+    paused: bool = attrs.field(default=False)
+
 
 class GraphXY(Effect):
 
@@ -34,9 +37,11 @@ class GraphXY(Effect):
 
     
     def _update(self, frame_no):
-        if self._data["paused"]:
+        if self._data.paused:
+            #self._screen.print_at("NO UPDATE", self._x_origin+self._width//2, self._y_origin+self._height//2)
             return
-        self._draw(self._x_origin, self._y_origin, self._data["x_values"], self._data["y_values"])
+        # self._screen.print_at("DO UPDATE", self._x_origin+self._width//2, self._y_origin+self._height//2)
+        self._draw(self._x_origin, self._y_origin, self._data.x_values, self._data.y_values)
 
     def _draw(self, x_draw: int, y_draw: int, x_values: list, y_values: list[list]):
         if not all(isinstance(x, (int, float)) for x in x_values) and not (all(isinstance(y, (int, float)) for y in y_data) for y_data in y_values):
