@@ -41,8 +41,10 @@ class PlotXY(Drawable):
             #     raise ValueError(f"Y Mapped value error. mapped value: {y_index}. ref value: {y_values[i]}, max_val: {y_bound_max}, max_i: {self._height-1}, min_val: {y_bound_min}, min_i: 0.")
             if (i > 0 and self._interpolate):
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
-                    p_y = pt[1]
-                    p_x = pt[0]
+                    if pt[0] > width-1 or pt[0] < 0:
+                        continue
+                    if pt[1] > height-1 or pt[1] < 0:
+                        continue
                     # if p_x > self._width-1 or p_x < 0:
                     #     raise ValueError(f"X Mapped value error. mapped value: {p_x}. y0: {prior_y}, x0: {prior_x}, y1: {y_index}, x1: {x_index}")
                     # if p_y > self._height-1 or p_y < 0:
@@ -81,6 +83,10 @@ class PlotBraille(PlotXY):
                 continue
             if (i > 0 and self._interpolate):
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
+                    if pt[0] > width-1 or pt[0] < 0:
+                        continue
+                    if pt[1] > height-1 or pt[1] < 0:
+                        continue
                     braille_grid.set_value(braille_grid.to_index(pt[0], pt[1]), True)
             else:
                 braille_grid.set_value(braille_grid.to_index(x_index, y_index), True)
