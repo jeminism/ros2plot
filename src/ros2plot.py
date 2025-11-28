@@ -1,4 +1,4 @@
-
+import argparse
 import rclpy
 from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
@@ -14,33 +14,60 @@ from widgets.graph import GraphXY, GraphData
 import threading
 
 NUMERIC_TYPES = (int, float)
+IGNORE_FIELDS = ["/header"] #ignore first, integrate with timestamp later
 
 class TopicIntrospector:
-    def __init__(self, blacklist=[]):
+    def __init__(self, whitelist=None):
         self._tree = {}
-        self._blacklist = blacklist
+        self._whitelist = whitelist
 
     def introspect(self, msg, path):
-        if not hasattr(msg, "__slots__"):
-            #terminal branch
+        try:
+            fft = msg.get_fields_and_field_types() #use this to implicitly determine if msg is a ROS msg instead of a field.
+            for field in fft:
+                child_path = path + "/" + field
+                # print(child_path)
+                if any((x+"/" in child_path or x == child_path) for x in IGNORE_FIELDS):
+                    # print(f"ignore {child_path}")
+                    continue
+                if self._whitelist != None:
+                    if any((n+"/" in child_path or child_path+"/" in n or n == child_path) for n in self._whitelist):
+                        self.introspect(getattr(msg, field), child_path)
+                else:
+                    self.introspect(getattr(msg, field), child_path)
+        except AttributeError:
+            # NOT A ROS MSG 
+            # is terminal branch
             if isinstance(msg, NUMERIC_TYPES):
                 if path not in self._tree:
                     self._tree[path] = [msg]
                 else:
                     self._tree[path].append(msg)
         
-        else:
-            for s in msg.__slots__:
-                skip = False
-                child_path = path + "/" + s
-                for n in self._blacklist:
-                    if n in child_path:
-                        skip = True
-                        break
-                if skip:
-                    continue
-                else:
-                    self.introspect(getattr(msg, s), child_path)
+
+
+
+        # if not hasattr(msg, "__slots__"):
+        #     #terminal branch
+        #     if isinstance(msg, NUMERIC_TYPES):
+        #         if path not in self._tree:
+        #             self._tree[path] = [msg]
+        #         else:
+        #             self._tree[path].append(msg)
+        
+        # else:
+        #     print(f"path: {path}, slots: {msg.__slots__}")
+        #     for st in msg.__slots__:
+        #         s = st.lstrip('_')
+        #         skip = False
+        #         child_path = path + "/" + s
+        #         if self._whitelist != None:
+        #             for n in self._whitelist:
+        #                 if child_path in n:
+        #                     self.introspect(getattr(msg, s), child_path)
+        #                     break
+        #         else:
+        #             self.introspect(getattr(msg, s), child_path)
         
     
     def get_data(self):
@@ -49,13 +76,12 @@ class TopicIntrospector:
 
 
 class AnySubscriber(Node):
-    def __init__(self, topic_name, topic_type):
+    def __init__(self, topic_name, topic_type, whitelist = None):
         super().__init__("any_sub")
-        self._introspector = TopicIntrospector()
+        self._introspector = TopicIntrospector(whitelist)
         self._graph_data = GraphData()
         self._graph_data.paused = True
         self._timestamps = []
-        # self._screen = screen
         self._subscription = self.create_subscription(
                                 topic_type,
                                 topic_name,
@@ -66,35 +92,6 @@ class AnySubscriber(Node):
 
         self._timer_callback_group = MutuallyExclusiveCallbackGroup()
         self._timer = self.create_timer(0.5, self.update_graph, callback_group=self._timer_callback_group)
-
-        # self._render_callback_group = MutuallyExclusiveCallbackGroup()
-        # self._render = self.create_timer(0.05, self.render, callback_group=self._render_callback_group)
-
-        
-
-    # def screen(self):
-    #     try:
-    #         Screen.wrapper(self.render_graph)
-    #     except Exception as e:
-    #         print(f"screen error: {e}")
-
-    # def render_graph(self):
-    #     self._screen.clear()
-    #     if len(self._timestamps)==0:
-    #         self._screen.print_at("NO DATA RECEIVED!", 0,0)
-    #         return
-        
-    #     # graph = GraphXY(screen.width-8, screen.height-2, plot_hd=True)
-    #     data = self._introspector.get_data()
-    #     if len(data) == 0:
-    #         raise ValueError("No numeric fields found!")
-        
-    #     self._graph.draw(self._screen, 2, 1, self._timestamps, [data[d] for d in data])
-    #     self._screen.refresh()
-
-        # event = screen.get_key()
-        # if event in (ord('q'), ord('Q')):
-        #     return
 
 
     def listener_callback(self, msg):
@@ -108,6 +105,7 @@ class AnySubscriber(Node):
         if not self._new:
             self._graph_data.paused = True
             return
+        # print(self._introspector.get_data())
         self._new = False
         self._graph_data.paused = False
         data = self._introspector.get_data()
@@ -119,13 +117,6 @@ class AnySubscriber(Node):
     def get_graph_data(self):
         return self._graph_data
     
-    # def render(self):
-    #     try:
-    #         self._screen.play([self._scene])
-    #     except (KeyboardInterrupt, ExternalShutdownException):
-    #         return
-    #     except ResizeScreenError:
-    #         pass
 
 
 def ros_run(node, shutdown):
@@ -146,49 +137,86 @@ def screen_run(graph_data: GraphData, shutdown):
             except ResizeScreenError:
                 pass
 
+def set_args(parser):
+    parser.add_argument('topic_name', help='Name of the topic to subscribe')
+    parser.add_argument('topic_type', help='Type of topic to subscribe to. If missing, will internally attempt to automatically determine the topic type.')
+    parser.add_argument('--fields', nargs='*', help='Specific fields to plot. Expects directory style path.')
+
+# def validate_topic(topic_name, topic_type=None):
+#     found = False
+#     node = Node("dummy")
+#     found_type = None
+#     for name, types in node.get_topic_names_and_types():
+#         print(name)
+#         if topic_name != name and topic_name != name.lstrip('/'):
+#             continue
+        
+#         if topic_type == None:
+#             if len(types) > 1:
+#                 raise ValueError(f"Unable to determine correct type of topic '{topic_name}' due to multiple different types on the same topic name'")
+#             else:
+#                 found_type == types[0]
+#         else:
+#             try:
+#                 found_type = get_message(topic_type)
+#             except:
+#                 raise ValueError(f"Input type {topic_type} does not exist!")
+        
+#         break
+
+#     if not found:
+#         raise ValueError(f"Unable to find topic '{topic_name}' of input type '{topic_type}'")
+#     if found_type == None:
+#         raise ValueError(f"Topic '{topic_name}' is not of input type '{topic_type}'")
+
+#     return topic_name, found_type
+
+#         # print(f"  Topic: {topic_name}")
+#         # print(f"    Types: {', '.join(message_types)}")
 
 def main():
-    args = sys.argv[1:]
-    if len(args) != 2:
-        raise ValueError(f"Expected exactly two input argument; topic_name and topic_type. instead got: [{args}]")
-    topic_name = args[0]
-    try:
-        topic_type = get_message(args[1])
-    except:
-        raise ValueError(f"Input type {args[1]} does not exist!")
+    parser = argparse.ArgumentParser()
+    set_args(parser)
+
+    # args = sys.argv[1:]
+    args = vars(parser.parse_args(sys.argv[1:]))
+    print(args)
+
+    # topic_name = vars["topic_name"]
+    # topic_type = vars["topic_type"]
+
+    # if len(args) != 2:
+    #     raise ValueError(f"Expected exactly two input argument; topic_name and topic_type. instead got: [{args}]")
+    # topic_name = args[0]
+    # try:
+    #     topic_type = get_message(args[1])
+    # except:
+    #     raise ValueError(f"Input type {args[1]} does not exist!")
 
     rclpy.init()
 
+    # try:
+    #     topic_name, topic_type = validate_topic(args["topic_name"], args["topic_type"])
+    # except ValueError as e:
+    #     print(e)
+    #     return
+    topic_name = args["topic_name"]
+    try:
+        topic_type = get_message(args["topic_type"])
+    except:
+        raise ValueError(f"Input type {args["topic_type"]} does not exist!")
+    # topic_type = args["topic_type"]
+    fields = ["/"+x for x in args["fields"]] if args["fields"]!=None else None
+    print(fields)
+    
     shutdown = False
-    anysub = AnySubscriber(topic_name, topic_type)
+    anysub = AnySubscriber(topic_name, topic_type, fields)
 
     t = threading.Thread(target=ros_run, args=(anysub,shutdown), daemon=True)
     t.start()
 
     screen_run(anysub.get_graph_data(), shutdown)
     t.join()
-
-    # minimal_subscriber = AnySubscriber(topic_name, topic_type)
-    
-
-    # t = Thread(target=screen_play, args=(minimal_subscriber.get_graph_data()))
-    # t.start()
-
-    # rclpy.spin(minimal_subscriber)
-    # t.join()
-
-    # executor = MultiThreadedExecutor()
-    # with ManagedScreen() as screen:
-    #     minimal_subscriber = AnySubscriber(screen, topic_name, topic_type)
-    #     executor.add_node(minimal_subscriber)
-    #     try:
-    #         executor.spin()
-    #     except (KeyboardInterrupt, ExternalShutdownException):
-    #         pass
-
-    #     screen.close()
-
-    # print(GraphData().keys())
 
 if __name__ == '__main__':
     main()
