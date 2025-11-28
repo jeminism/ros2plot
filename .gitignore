@@ -2,3 +2,7 @@
 src/__pycache__/
 
 src/utils/__pycache__/
+
+src/drawables/__pycache__/
+
+src/widgets/__pycache__/
