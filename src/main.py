@@ -1,4 +1,4 @@
-from graph import GraphXY
+from widgets.graph import GraphXY
 from asciimatics.screen import Screen
 
 import time
