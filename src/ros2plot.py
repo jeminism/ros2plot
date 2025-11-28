@@ -12,6 +12,7 @@ import sys
 
 from widgets.graph import GraphXY, GraphData
 import threading
+import time
 
 NUMERIC_TYPES = (int, float)
 IGNORE_FIELDS = ["/header"] #ignore first, integrate with timestamp later
@@ -131,9 +132,13 @@ def ros_run(node, shutdown):
 def screen_run(graph_data: GraphData, shutdown):
     with ManagedScreen() as screen:
         graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
+        screen.set_scenes([Scene([graph], duration=graph.stop_frame)])
+        period = 1.0/10
         while not shutdown:
+            # screen.draw_next_frame()
+            # time.sleep(period)
             try:
-                screen.play([Scene([graph], duration=graph.stop_frame)])
+                screen.play([Scene([graph], duration=graph.stop_frame)], stop_on_resize=True)
             except ResizeScreenError:
                 pass
 

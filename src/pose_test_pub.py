@@ -10,10 +10,18 @@ class MinimalPublisher(Node):
     def __init__(self):
         super().__init__('minimal_publisher')
         self.publisher_ = self.create_publisher(PoseStamped, 'test_pose', 10)
-        timer_period = 0.5  # seconds
+        timer_period = 0.05 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.i = 0
         self.msg = PoseStamped()
+        self.msg.pose.position.x = random.uniform(-5, 2)
+        self.msg.pose.position.y = random.uniform(3, 15)
+        self.msg.pose.position.z = random.uniform(-9, 1)
+    
+        self.msg.pose.orientation.x = random.uniform(-1, 1)
+        self.msg.pose.orientation.y = random.uniform(-1, 1)
+        self.msg.pose.orientation.z = random.uniform(-1, 1)
+        self.msg.pose.orientation.w = random.uniform(-1, 1)
 
     def timer_callback(self):
         # self.msg.header.stamp = self.get_clock().now()
