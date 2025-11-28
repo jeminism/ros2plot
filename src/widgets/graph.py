@@ -14,6 +14,7 @@ class GraphData:
     y_values: list[list] = attrs.field(default=[])
     paused: bool = attrs.field(default=False)
 
+MAX_GRAPH_PTS = 1000
 
 class GraphXY(Effect):
 
@@ -28,6 +29,8 @@ class GraphXY(Effect):
         self._data = data
         self._x_origin = x_pos
         self._y_origin = y_pos
+        self._edited = []
+        self._last_len = -1
 
     def reset(self):
         self._screen.clear()
@@ -35,13 +38,28 @@ class GraphXY(Effect):
     def stop_frame(self):
         return 10**12  # arbitrarily long duration  
 
+    def custom_print(self, string, x, y, colour=7):
+        self._edited.append(([len(s) for s in string.split("\n")],x,y))
+        self._screen.print_at(string, x, y, colour)
+    
+    def custom_clear(self):
+        for ls, x, y in self._edited:
+            self._screen.print_at("\n".join([" "*n for n in ls]), x, y)
+        self._edited = []
     
     def _update(self, frame_no):
-        if self._data.paused:
-            #self._screen.print_at("NO UPDATE", self._x_origin+self._width//2, self._y_origin+self._height//2)
+        n = len(self._data.x_values)
+        if self._data.paused or self._last_len == len(self._data.x_values):
+            #self.custom_print("NO UPDATE", self._x_origin+self._width//2, self._y_origin+self._height//2)
             return
-        # self._screen.print_at("DO UPDATE", self._x_origin+self._width//2, self._y_origin+self._height//2)
-        self._draw(self._x_origin, self._y_origin, self._data.x_values, self._data.y_values)
+        self.custom_clear()
+        self._last_len = n
+        # self._screen.clear()
+        # self.custom_print("DO UPDATE", self._x_origin+self._width//2, self._y_origin+self._height//2)
+        if n < MAX_GRAPH_PTS:
+            self._draw(self._x_origin, self._y_origin, self._data.x_values, self._data.y_values)
+        else:
+            self._draw(self._x_origin, self._y_origin, self._data.x_values[-MAX_GRAPH_PTS:], [y[-MAX_GRAPH_PTS:] for y in self._data.y_values])
 
     def _draw(self, x_draw: int, y_draw: int, x_values: list, y_values: list[list]):
         if not all(isinstance(x, (int, float)) for x in x_values) and not (all(isinstance(y, (int, float)) for y in y_data) for y_data in y_values):
@@ -49,9 +67,10 @@ class GraphXY(Effect):
         
         # if len(x_values) != len(y_values):
         #     raise ValueError("X and Y axis data must be of same length")
-
+        
         x_val_min, x_val_max = min_max(x_values)
         y_val_min, y_val_max = multi_min_max(y_values)
+        # self.custom_print(f"{x_values}, min x {x_val_min}, max x: {x_val_max}", 0, 0)
         
         if x_val_min == x_val_max:
             if x_val_min < 0:
@@ -80,32 +99,42 @@ class GraphXY(Effect):
         # if (y_bound_max):
         #     y_val_max = y_bound_max
         
+        #---- draw axes
+        y_axis_location = get_mapped_value(0 if x_val_min < 0 else x_val_min, x_val_max, self._width-1, x_val_min, 0)
+        x_axis_location = get_mapped_value(0 if y_val_min < 0 else y_val_min, y_val_max, 0, y_val_min, self._height-1)
+        self._y_axis.draw(self._screen, x_draw+y_axis_location, y_draw, print_fn=self.custom_print)
+        self._x_axis.draw(self._screen, x_draw, y_draw+x_axis_location, print_fn=self.custom_print)
+
+        #---- y label location on x
+        y_label_x_location = max(x_draw, x_draw+y_axis_location-2)
+
         for i in range(len(y_values)):
             c = COLOURS[i%NUM_COLOURS]
             #---- update plot data
             self._plot.plot(x_values, y_values[i], x_val_min, x_val_max, y_val_min, y_val_max)
             #---- draw stuff
-            self._plot.draw(self._screen, x_draw, y_draw, colour=c)
+            self._plot.draw(self._screen, x_draw, y_draw, colour=c, print_fn=self.custom_print)
+            #---- draw latest y value label
+            y_latest_location = get_mapped_value(y_values[i][-1], y_val_max, 0, y_val_min, self._height-1)
+            self.custom_print(f"{y_values[i][-1]:3.2f}", y_label_x_location, y_draw+y_latest_location, colour=c)
 
-        y_axis_location = get_mapped_value(0 if x_val_min < 0 else x_val_min, x_val_max, self._width-1, x_val_min, 0)
-        x_axis_location = get_mapped_value(0 if y_val_min < 0 else y_val_min, y_val_max, 0, y_val_min, self._height-1)
-        self._y_axis.draw(self._screen, x_draw+y_axis_location, y_draw)
-        self._x_axis.draw(self._screen, x_draw, y_draw+x_axis_location)
 
-        #---- draw labels. only print latest, min, max
-        y_label_x_location = max(x_draw, x_draw+y_axis_location-2)
-        for y_data in y_values:
-            y_latest_location = get_mapped_value(y_data[-1], y_val_max, 0, y_val_min, self._height-1)
-            self._screen.print_at(f"{y_data[-1]:3.2f}", y_label_x_location, y_draw+y_latest_location)
+        # #---- draw labels. only print latest, min, max
+        # for y_data in y_values:
+        #     y_latest_location = get_mapped_value(y_data[-1], y_val_max, 0, y_val_min, self._height-1)
+        #     self.custom_print(f"{y_data[-1]:3.2f}", y_label_x_location, y_draw+y_latest_location)
 
-        self._screen.print_at(f"{y_val_max:3.2f}", y_label_x_location, y_draw)
-        self._screen.print_at(f"{y_val_min:3.2f}", y_label_x_location, y_draw+self._height-1)
+        #---- draw remaining y labels -> min and max values
+        self.custom_print(f"{y_val_max:3.2f}", y_label_x_location, y_draw)
+        self.custom_print(f"{y_val_min:3.2f}", y_label_x_location, y_draw+self._height-1)
 
+        #---- draw x labels
         x_latest_location = get_mapped_value(x_values[-1], x_val_max, self._width-1, x_val_min, 0)
         x_label_y_location = min(y_draw+self._height-1, y_draw+x_axis_location+1)
-        self._screen.print_at(f"{x_values[-1]:3.2f}", x_draw+x_latest_location, x_label_y_location)
-        self._screen.print_at(f"{x_val_max:3.2f}", x_draw+self._width-1, x_label_y_location)
-        self._screen.print_at(f"{x_val_min:3.2f}", x_draw, x_label_y_location)
+        self.custom_print(f"{x_values[-1]:3.2f}", x_draw+x_latest_location, x_label_y_location)
+        self.custom_print(f"{x_val_max:3.2f}", x_draw+self._width-1, x_label_y_location)
+        if x_val_min != 0:
+            self.custom_print(f"{x_val_min:3.2f}", x_draw, x_label_y_location)
 
 
         
