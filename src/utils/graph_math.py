@@ -8,7 +8,7 @@ def get_mapped_value(value, max_value, max_mapped, min_value, min_mapped):
     return type(max_mapped)((value - min_value)/(max_value - min_value) * (max_mapped - min_mapped) + min_mapped)
 
 def min_max(values: list):
-    min = 0
+    min = math.inf
     max = 0
     for val in values:
         if val < min:
@@ -18,7 +18,7 @@ def min_max(values: list):
     return min, max
 
 def multi_min_max(data: list[list]):
-    min = 0
+    min = math.inf
     max = 0
     try:
         for values in data:
