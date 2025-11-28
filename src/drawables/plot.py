@@ -33,9 +33,11 @@ class PlotXY(Drawable):
         for i in range(n_vals):
             y_index = get_mapped_value(y_values[i], y_bound_max, 0, y_bound_min, self._height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
             x_index = get_mapped_value(x_values[i], x_bound_max, self._width-1, x_bound_min, 0)
-            # if x_index > self._width-1 or x_index < 0:
+            if x_index > self._width-1 or x_index < 0:
+                continue
             #     raise ValueError(f"X Mapped value error. mapped value: {x_index}. ref value: {x_values[i]}, max_val: {x_bound_max}, max_i: {self._width-1}, min_val: {x_bound_min}, min_i: 0.")
-            # if y_index > self._height-1 or y_index < 0:
+            if y_index > self._height-1 or y_index < 0:
+                continue
             #     raise ValueError(f"Y Mapped value error. mapped value: {y_index}. ref value: {y_values[i]}, max_val: {y_bound_max}, max_i: {self._height-1}, min_val: {y_bound_min}, min_i: 0.")
             if (i > 0 and self._interpolate):
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
@@ -73,6 +75,10 @@ class PlotBraille(PlotXY):
         for i in range(n_vals):
             y_index = get_mapped_value(y_values[i], y_bound_max, 0, y_bound_min, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
             x_index = get_mapped_value(x_values[i], x_bound_max, width-1, x_bound_min, 0)
+            if x_index > width-1 or x_index < 0:
+                continue
+            if y_index > height-1 or y_index < 0:
+                continue
             if (i > 0 and self._interpolate):
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
                     braille_grid.set_value(braille_grid.to_index(pt[0], pt[1]), True)
