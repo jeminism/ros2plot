@@ -1,15 +1,21 @@
 
-from asciimatics.screen import ManagedScreen
+from asciimatics.screen import ManagedScreen, Screen
 from asciimatics.scene import Scene
 from asciimatics.exceptions import NextScene
-from effects.legend import PopUpLegend
+from effects.legend import GraphLegend
+from utils.colour_palette import COLOURS, NUM_COLOURS
 
 import threading
 import time
 
 def toggle_legend(screen, base_scene):
     try:
-        legend = PopUpLegend(screen, screen.width//2, screen.height//2, ["test labe1l ", "another", "this is a little bit longer"])
+        labels = ["test labe1l ", "another", "this is a little bit longer"]
+        colours = COLOURS[:3]
+        # colours = [ (COLOURS[0], Screen.A_NORMAL, Screen.COLOUR_BLUE),
+        #             (COLOURS[1], Screen.A_NORMAL, Screen.COLOUR_BLACK),
+        #             (COLOURS[2], Screen.A_NORMAL, Screen.COLOUR_BLACK) ]
+        legend = GraphLegend(screen, screen.width//2, screen.height//2, labels, colours)
         while True:
             time.sleep(1.0)
             if len(base_scene.effects) > 0:
@@ -25,8 +31,10 @@ def toggle_legend(screen, base_scene):
 
 with ManagedScreen() as screen:
     base_scene = Scene([], -1, name="empty")
-    legend = PopUpLegend(screen, screen.width//2, screen.height//2, ["test labe1l ", "another", "this is a little bit longer"])
-
+    labels = ["test labe1l ", "another", "this is a little bit longer"]
+    colours = COLOURS[:3]
+    legend = GraphLegend(screen, screen.width//2, screen.height//2, labels, colours)
+    base_scene.add_effect(legend)
     scenes = [base_scene]
     def on_key(event):
         try:
@@ -46,10 +54,10 @@ with ManagedScreen() as screen:
         except:
             return
 
-    t = threading.Thread(target=toggle_legend, args=(screen, base_scene), daemon=True,)
-    t.start()
+    # t = threading.Thread(target=toggle_legend, args=(screen, base_scene), daemon=True,)
+    # t.start()
     screen.play(scenes)
-    t.join()
+    # t.join()
 
 #######################################################
 
