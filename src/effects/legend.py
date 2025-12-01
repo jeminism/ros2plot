@@ -38,7 +38,7 @@ class LegendLabel(Label):
         self._frame.canvas.paint("• ",
                                  self._x,
                                  self._y,
-                                 self.GREEN if self._show else self.RED,
+                                 colour, #self.GREEN if self._show else self.RED,
                                  attr,
                                  background)                                
         for i, text in enumerate(_split_text(label, self._w, self._h, self._frame.canvas.unicode_aware)):
@@ -50,28 +50,37 @@ class LegendLabel(Label):
                                      background)
 
 class GraphLegend(Frame):
-    def __init__(self, screen, x, y, labels: list, colours=None, max_height=None):
-        if x >= screen.width:
-            raise ValueError(f"X coordinate exceeds screen bounds ({x} >= {screen.width})")
+    def __init__(self, screen, labels: list, colours=None, x=None, y=None, max_width=None, max_height=None):
+        # if x >= screen.width:
+        #     raise ValueError(f"X coordinate exceeds screen bounds ({x} >= {screen.width})")
         
         if colours != None:
             if len(labels) != len(colours):
                 raise ValueError(f"Colour list length ({len(colours)}) must match the number of labels provided ({len(labels)}!)")
        
         m, max_len = min_max([len(s) for s in labels])
-        length = min(max_len, screen.width-y-1)
-        self._width = length+4
+
+        self._width = max_len+6
+        # length = min(max_len, screen.width-y-1)
+        if max_width != None:
+            self._width = min(self._width, max_width)
         self._height = len(labels)+2
         if max_height != None:
             self._height = min(self._height, max_height)
-        self._x = x
-        self._y = y
+        
+        self._x = screen.width - self._width - 2
+        if x != None:
+            self._x = x
+        self._y = 0
+        if y != None:
+            self._y = y
+
         super().__init__(screen, self._height, self._width, x=self._x, y=self._y, has_border=True, can_scroll=True)
         
         self.set_theme("monochrome")
         self._selections = [True]*len(labels)
         self._labels = {}
-        layout = Layout([length])
+        layout = Layout([len(labels)])
         self.add_layout(layout)
         for i in range(len(labels)):
             l = labels[i]

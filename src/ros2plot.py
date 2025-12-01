@@ -10,19 +10,24 @@ from asciimatics.scene import Scene
 from asciimatics.exceptions import ResizeScreenError
 import sys
 
-from widgets.graph import GraphXY, GraphData
+from effects.graph import GraphXY, GraphData
+from effects.legend import GraphLegend
+
+from utils.colour_palette import COLOURS, NUM_COLOURS
+
 import threading
 import time
 
-NUMERIC_TYPES = (int, float)
+NUMERIC_TYPES = (int, float, bool)
 IGNORE_FIELDS = ["/header"] #ignore first, integrate with timestamp later
 
 class TopicIntrospector:
     def __init__(self, whitelist=None):
-        self._tree = {}
+        self._keys = []
+        self._data = []
         self._whitelist = whitelist
 
-    def introspect(self, msg, path):
+    def introspect(self, msg, path, no_data=False):
         try:
             fft = msg.get_fields_and_field_types() #use this to implicitly determine if msg is a ROS msg instead of a field.
             for field in fft:
@@ -33,46 +38,30 @@ class TopicIntrospector:
                     continue
                 if self._whitelist != None:
                     if any((n+"/" in child_path or child_path+"/" in n or n == child_path) for n in self._whitelist):
-                        self.introspect(getattr(msg, field), child_path)
+                        self.introspect(getattr(msg, field), child_path, no_data)
                 else:
-                    self.introspect(getattr(msg, field), child_path)
+                    self.introspect(getattr(msg, field), child_path, no_data)
         except AttributeError:
             # NOT A ROS MSG 
             # is terminal branch
             if isinstance(msg, NUMERIC_TYPES):
-                if path not in self._tree:
-                    self._tree[path] = [msg]
-                else:
-                    self._tree[path].append(msg)
-        
-
-
-
-        # if not hasattr(msg, "__slots__"):
-        #     #terminal branch
-        #     if isinstance(msg, NUMERIC_TYPES):
-        #         if path not in self._tree:
-        #             self._tree[path] = [msg]
-        #         else:
-        #             self._tree[path].append(msg)
-        
-        # else:
-        #     print(f"path: {path}, slots: {msg.__slots__}")
-        #     for st in msg.__slots__:
-        #         s = st.lstrip('_')
-        #         skip = False
-        #         child_path = path + "/" + s
-        #         if self._whitelist != None:
-        #             for n in self._whitelist:
-        #                 if child_path in n:
-        #                     self.introspect(getattr(msg, s), child_path)
-        #                     break
-        #         else:
-        #             self.introspect(getattr(msg, s), child_path)
+                try:
+                    index = self._keys.index(path)
+                    if not no_data:
+                        # print("no data 1")
+                        self._data[index].append(msg)
+                except ValueError:
+                    self._keys.append(path)
+                    if not no_data:
+                        # print("no data 2")
+                        self._data.append([msg])
+                    else:
+                        # print("no data correct")
+                        self._data.append([])
         
     
-    def get_data(self):
-        return self._tree
+    def get_data(self) -> (list, list):
+        return self._keys, self._data
 
 
 
@@ -80,8 +69,9 @@ class AnySubscriber(Node):
     def __init__(self, topic_name, topic_type, whitelist = None):
         super().__init__("any_sub")
         self._introspector = TopicIntrospector(whitelist)
-        self._graph_data = GraphData()
-        self._graph_data.paused = True
+        self._introspector.introspect(topic_type(), "", no_data=True) #just initialize the keys first
+        # self._graph_data = GraphData()
+        # self._graph_data.paused = True
         self._timestamps = []
         self._subscription = self.create_subscription(
                                 topic_type,
@@ -91,32 +81,37 @@ class AnySubscriber(Node):
         self._first_time = None
         self._new = False
 
-        self._timer_callback_group = MutuallyExclusiveCallbackGroup()
-        self._timer = self.create_timer(0.5, self.update_graph, callback_group=self._timer_callback_group)
+        # self._timer_callback_group = MutuallyExclusiveCallbackGroup()
+        # self._timer = self.create_timer(0.5, self.update_graph, callback_group=self._timer_callback_group)
 
 
     def listener_callback(self, msg):
         self._new = True
         if self._first_time == None:
             self._first_time = self.get_clock().now().nanoseconds
-        self._graph_data.x_values.append(self.get_clock().now().nanoseconds - self._first_time)
+        # self._graph_data.x_values.append(self.get_clock().now().nanoseconds - self._first_time)
+        self._timestamps.append(self.get_clock().now().nanoseconds - self._first_time)
         self._introspector.introspect(msg, "")
     
-    def update_graph(self):
-        if not self._new:
-            self._graph_data.paused = True
-            return
-        # print(self._introspector.get_data())
-        self._new = False
-        self._graph_data.paused = False
-        data = self._introspector.get_data()
-        if len(data) == 0:
-            raise ValueError("No numeric fields found!")
+    # def update_graph(self):
+    #     if not self._new:
+    #         self._graph_data.paused = True
+    #         return
+    #     # print(self._introspector.get_data())
+    #     self._new = False
+    #     self._graph_data.paused = False
+    #     data = self._introspector.get_data()
+    #     if len(data) == 0:
+    #         raise ValueError("No numeric fields found!")
 
-        self._graph_data.y_values = [data[d] for d in data]
+    #     self._graph_data.y_values = [data[d] for d in data]
 
-    def get_graph_data(self):
-        return self._graph_data
+    # def get_graph_data(self):
+    #     return self._graph_data
+    
+    def get_graph_data(self) -> (list, list, list):
+        keys, values = self._introspector.get_data()
+        return keys, values, self._timestamps
     
 
 
@@ -129,16 +124,30 @@ def ros_run(node, shutdown):
         shutdown = True
         return
 
-def screen_run(graph_data: GraphData, shutdown):
+def screen_run(labels: list, y_data: list[list], x_values: list, shutdown):
+    print(labels, y_data, x_values)
     with ManagedScreen() as screen:
+        graph_data = GraphData()
+        graph_data.x_values = x_values
+        graph_data.y_values = y_data
+        graph_data.paused = False
+
+        max_label_len = 0
+        for i in range(len(labels)):
+            n = len(labels[i])
+            if n > max_label_len:
+                max_label_len = n
+            graph_data.colours.append(COLOURS[i%NUM_COLOURS])
+        
         graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
-        screen.set_scenes([Scene([graph], duration=graph.stop_frame)])
-        period = 1.0/10
+        legend = GraphLegend(screen, labels, graph_data.colours, max_width=screen.width//2, max_height=screen.height//4)
+        # screen.set_scenes([Scene([graph, legend], duration=graph.stop_frame)])
+        # period = 1.0/10
         while not shutdown:
             # screen.draw_next_frame()
             # time.sleep(period)
             try:
-                screen.play([Scene([graph], duration=graph.stop_frame)], stop_on_resize=True)
+                screen.play([Scene([graph, legend], duration=graph.stop_frame)], stop_on_resize=True)
             except ResizeScreenError:
                 pass
 
@@ -217,10 +226,11 @@ def main():
     shutdown = False
     anysub = AnySubscriber(topic_name, topic_type, fields)
 
+    labels, y_values, x_values = anysub.get_graph_data()
+
     t = threading.Thread(target=ros_run, args=(anysub,shutdown), daemon=True)
     t.start()
-
-    screen_run(anysub.get_graph_data(), shutdown)
+    screen_run(labels, y_values, x_values, shutdown)
     t.join()
 
 if __name__ == '__main__':

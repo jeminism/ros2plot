@@ -12,6 +12,7 @@ import attrs
 class GraphData:
     x_values: list = attrs.field(default=[])
     y_values: list[list] = attrs.field(default=[])
+    colours: list = attrs.field(default=[])
     paused: bool = attrs.field(default=False)
 
 MAX_GRAPH_PTS = 1000
@@ -49,24 +50,30 @@ class GraphXY(Effect):
     
     def _update(self, frame_no):
         n = len(self._data.x_values)
-        if self._data.paused or self._last_len == len(self._data.x_values):
+        if self._data.paused or self._last_len == len(self._data.x_values) or n == 0:
             #self.custom_print("NO UPDATE", self._x_origin+self._width//2, self._y_origin+self._height//2)
             return
-        self.custom_clear()
         self._last_len = n
+        self.custom_clear()
         # self._screen.clear()
         # self.custom_print("DO UPDATE", self._x_origin+self._width//2, self._y_origin+self._height//2)
         if n < MAX_GRAPH_PTS:
-            self._draw(self._x_origin, self._y_origin, self._data.x_values, self._data.y_values)
+            self._draw(self._x_origin, self._y_origin, self._data.x_values, self._data.y_values, self._data.colours)
         else:
-            self._draw(self._x_origin, self._y_origin, self._data.x_values[-MAX_GRAPH_PTS:], [y[-MAX_GRAPH_PTS:] for y in self._data.y_values])
+            self._draw(self._x_origin, self._y_origin, self._data.x_values[-MAX_GRAPH_PTS:], [y[-MAX_GRAPH_PTS:] for y in self._data.y_values], self._data.colours)
 
-    def _draw(self, x_draw: int, y_draw: int, x_values: list, y_values: list[list]):
+    def _draw(self, x_draw: int, y_draw: int, x_values: list, y_values: list[list], colours: list):
         if not all(isinstance(x, (int, float)) for x in x_values) and not (all(isinstance(y, (int, float)) for y in y_data) for y_data in y_values):
             raise TypeError("All elements must be numeric")
         
-        # if len(x_values) != len(y_values):
-        #     raise ValueError("X and Y axis data must be of same length")
+        if len(colours) != len(y_values):
+            raise ValueError("Colors and Y axis data must be of same length")
+
+        if not all(len(x_values) == len(y) for y in y_values):
+            raise ValueError(f"X({len(x_values)}) and Y ({len(y_values[0])}) axis data must be of same length")
+
+        if len(x_values) == 0:
+            raise ValueError(f"X({len(x_values)}) and Y ({len(y_values[0])}) axis data must be of same length")
         
         x_val_min, x_val_max = min_max(x_values)
         y_val_min, y_val_max = multi_min_max(y_values)
@@ -109,7 +116,7 @@ class GraphXY(Effect):
         y_label_x_location = max(x_draw, x_draw+y_axis_location-2)
 
         for i in range(len(y_values)):
-            c = COLOURS[i%NUM_COLOURS]
+            c = colours[i]
             #---- update plot data
             self._plot.plot(x_values, y_values[i], x_val_min, x_val_max, y_val_min, y_val_max)
             #---- draw stuff
