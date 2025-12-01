@@ -66,13 +66,15 @@ class TopicIntrospector:
 
 
 class AnySubscriber(Node):
-    def __init__(self, topic_name, topic_type, whitelist = None):
+    def __init__(self, topic_name, topic_type, whitelist = None, x_key=None):
         super().__init__("any_sub")
         self._introspector = TopicIntrospector(whitelist)
         self._introspector.introspect(topic_type(), "", no_data=True) #just initialize the keys first
         # self._graph_data = GraphData()
         # self._graph_data.paused = True
-        self._timestamps = []
+        self._x_key = x_key
+        self._x_values = []
+        self._y_values = []
         self._subscription = self.create_subscription(
                                 topic_type,
                                 topic_name,
@@ -90,7 +92,8 @@ class AnySubscriber(Node):
         if self._first_time == None:
             self._first_time = self.get_clock().now().nanoseconds
         # self._graph_data.x_values.append(self.get_clock().now().nanoseconds - self._first_time)
-        self._timestamps.append(self.get_clock().now().nanoseconds - self._first_time)
+        if self._x_key == None:
+            self._x_values.append(self.get_clock().now().nanoseconds - self._first_time)
         self._introspector.introspect(msg, "")
     
     # def update_graph(self):
@@ -111,7 +114,18 @@ class AnySubscriber(Node):
     
     def get_graph_data(self) -> (list, list, list):
         keys, values = self._introspector.get_data()
-        return keys, values, self._timestamps
+
+        if self._x_key == None:
+            self._y_values = values
+        else:
+            for i in range(len(keys)):
+                if keys[i] != self._x_key:
+                    self._y_values.append(values[i])
+                else:
+                    self._x_values = values[i]
+            if len(self._y_values) + len(self._x_values) != len(values):
+                raise ValueError("Key size mismatch")
+        return keys, self._y_values, self._x_values
     
 
 
@@ -155,6 +169,7 @@ def set_args(parser):
     parser.add_argument('topic_name', help='Name of the topic to subscribe')
     parser.add_argument('topic_type', help='Type of topic to subscribe to. If missing, will internally attempt to automatically determine the topic type.')
     parser.add_argument('--fields', nargs='*', help='Specific fields to plot. Expects directory style path.')
+    parser.add_argument('--x-field', nargs='*', help='Specific field to use as x axis. Expects directory style path. If missing, will default to system time')
 
 # def validate_topic(topic_name, topic_type=None):
 #     found = False
@@ -221,10 +236,11 @@ def main():
         raise ValueError(f"Input type {args["topic_type"]} does not exist!")
     # topic_type = args["topic_type"]
     fields = ["/"+x for x in args["fields"]] if args["fields"]!=None else None
+    x_key = args["x_field"] if args["x_field"]!=None else None
     print(fields)
     
     shutdown = False
-    anysub = AnySubscriber(topic_name, topic_type, fields)
+    anysub = AnySubscriber(topic_name, topic_type, fields, x_key=x_key)
 
     labels, y_values, x_values = anysub.get_graph_data()
 
