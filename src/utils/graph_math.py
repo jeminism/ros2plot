@@ -13,7 +13,7 @@ def min_max(values: list):
     for val in values:
         if val < min:
             min = val
-        elif val > max:
+        if val > max:
             max = val
     return min, max
 
@@ -25,7 +25,7 @@ def multi_min_max(data: list[list]):
             for val in values:
                 if val < min:
                     min = val
-                elif val > max:
+                if val > max:
                     max = val
     except TypeError as e:
         raise TypeError(f"{e}. val: {val}, min: {min}, max: {max}")
