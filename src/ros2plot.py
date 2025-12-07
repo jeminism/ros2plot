@@ -14,6 +14,7 @@ from effects.graph import GraphXY, GraphData
 from effects.legend import GraphLegend
 
 from utils.colour_palette import COLOURS, NUM_COLOURS
+from utils.graph_math import min_max
 
 import threading
 import time
@@ -22,12 +23,17 @@ NUMERIC_TYPES = (int, float, bool)
 IGNORE_FIELDS = ["/header"] #ignore first, integrate with timestamp later
 
 class TopicIntrospector:
-    def __init__(self, whitelist=None):
+    def __init__(self, whitelist=None, blacklist=None):
         self._keys = []
         self._data = []
         self._whitelist = whitelist
+        self._blacklist = blacklist
 
     def introspect(self, msg, path, no_data=False):
+        # if self._blacklist != None:
+        #     if path in self._blacklist:
+        #         # stop propogation on an exact match for blacklisted fields.
+        #         return 
         try:
             fft = msg.get_fields_and_field_types() #use this to implicitly determine if msg is a ROS msg instead of a field.
             for field in fft:
@@ -66,14 +72,14 @@ class TopicIntrospector:
 
 
 class AnySubscriber(Node):
-    def __init__(self, topic_name, topic_type, whitelist = None, x_key=None):
+    def __init__(self, topic_name, topic_type, whitelist = None, blacklist = None, x_key=None):
         super().__init__("any_sub")
-        self._introspector = TopicIntrospector(whitelist)
+        self._introspector = TopicIntrospector(whitelist, blacklist)
         self._introspector.introspect(topic_type(), "", no_data=True) #just initialize the keys first
         # self._graph_data = GraphData()
         # self._graph_data.paused = True
         self._x_key = x_key
-        self._x_values = []
+        self._x_values = [] if x_key == None else None
         self._y_values = []
         self._subscription = self.create_subscription(
                                 topic_type,
@@ -118,13 +124,18 @@ class AnySubscriber(Node):
         if self._x_key == None:
             self._y_values = values
         else:
+            # print(f"'{self._x_key}'")
+            key_tmp = []
             for i in range(len(keys)):
+                print(f"'{self._x_key}' vs '{keys[i]}'")
                 if keys[i] != self._x_key:
                     self._y_values.append(values[i])
+                    key_tmp.append(keys[i])
                 else:
                     self._x_values = values[i]
-            if len(self._y_values) + len(self._x_values) != len(values):
-                raise ValueError("Key size mismatch")
+            if self._x_values == None:
+                raise ValueError(f"X axis field could not be found! expected {self._x_key}")
+            keys = key_tmp
         return keys, self._y_values, self._x_values
     
 
@@ -153,8 +164,8 @@ def screen_run(labels: list, y_data: list[list], x_values: list, shutdown):
                 max_label_len = n
             graph_data.colours.append(COLOURS[i%NUM_COLOURS])
         
-        graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
         legend = GraphLegend(screen, labels, graph_data.colours, max_width=screen.width//2, max_height=screen.height//4)
+        graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
         # screen.set_scenes([Scene([graph, legend], duration=graph.stop_frame)])
         # period = 1.0/10
         while not shutdown:
@@ -169,7 +180,8 @@ def set_args(parser):
     parser.add_argument('topic_name', help='Name of the topic to subscribe')
     parser.add_argument('topic_type', help='Type of topic to subscribe to. If missing, will internally attempt to automatically determine the topic type.')
     parser.add_argument('--fields', nargs='*', help='Specific fields to plot. Expects directory style path.')
-    parser.add_argument('--x-field', nargs='*', help='Specific field to use as x axis. Expects directory style path. If missing, will default to system time')
+    parser.add_argument('--x-field', nargs=1, help='Specific field to use as x axis. Expects directory style path. If missing, will default to system time')
+    parser.add_argument('--ignore-fields', nargs='*', help='Y value fields to ignore, even if it falls under the specified fields. Expects directory style path.')
 
 # def validate_topic(topic_name, topic_type=None):
 #     found = False
@@ -236,7 +248,10 @@ def main():
         raise ValueError(f"Input type {args["topic_type"]} does not exist!")
     # topic_type = args["topic_type"]
     fields = ["/"+x for x in args["fields"]] if args["fields"]!=None else None
-    x_key = args["x_field"] if args["x_field"]!=None else None
+    #ssblacklist = ["/"+x for x in args["ignore_fields"]] if args["ignore_fields"]!=None else None
+    x_key = "/"+args["x_field"][0] if args["x_field"]!=None else None
+    if fields != None and x_key != None and x_key not in fields:
+        fields.append(x_key)
     print(fields)
     
     shutdown = False
