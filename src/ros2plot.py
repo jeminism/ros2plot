@@ -141,10 +141,11 @@ class AnySubscriber(Node):
 
 
 def ros_run(node, shutdown):
-    executor = MultiThreadedExecutor()
-    executor.add_node(node)
+    # executor = MultiThreadedExecutor()
+    # executor.add_node(node)
     try:
-        executor.spin()
+        # executor.spin()
+        rclpy.spin(node)
     except (KeyboardInterrupt, ExternalShutdownException):
         shutdown = True
         return
