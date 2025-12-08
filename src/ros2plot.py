@@ -23,17 +23,12 @@ NUMERIC_TYPES = (int, float, bool)
 IGNORE_FIELDS = ["/header"] #ignore first, integrate with timestamp later
 
 class TopicIntrospector:
-    def __init__(self, whitelist=None, blacklist=None):
+    def __init__(self, whitelist=None):
         self._keys = []
         self._data = []
         self._whitelist = whitelist
-        self._blacklist = blacklist
 
     def introspect(self, msg, path, no_data=False):
-        # if self._blacklist != None:
-        #     if path in self._blacklist:
-        #         # stop propogation on an exact match for blacklisted fields.
-        #         return 
         try:
             fft = msg.get_fields_and_field_types() #use this to implicitly determine if msg is a ROS msg instead of a field.
             for field in fft:
@@ -54,15 +49,12 @@ class TopicIntrospector:
                 try:
                     index = self._keys.index(path)
                     if not no_data:
-                        # print("no data 1")
                         self._data[index].append(msg)
                 except ValueError:
                     self._keys.append(path)
                     if not no_data:
-                        # print("no data 2")
                         self._data.append([msg])
                     else:
-                        # print("no data correct")
                         self._data.append([])
         
     
@@ -72,12 +64,10 @@ class TopicIntrospector:
 
 
 class AnySubscriber(Node):
-    def __init__(self, topic_name, topic_type, whitelist = None, blacklist = None, x_key=None):
+    def __init__(self, topic_name, topic_type, whitelist = None, x_key=None):
         super().__init__("any_sub")
-        self._introspector = TopicIntrospector(whitelist, blacklist)
+        self._introspector = TopicIntrospector(whitelist)
         self._introspector.introspect(topic_type(), "", no_data=True) #just initialize the keys first
-        # self._graph_data = GraphData()
-        # self._graph_data.paused = True
         self._x_key = x_key
         self._x_values = [] if x_key == None else None
         self._y_values = []
@@ -89,10 +79,6 @@ class AnySubscriber(Node):
         self._first_time = None
         self._new = False
 
-        # self._timer_callback_group = MutuallyExclusiveCallbackGroup()
-        # self._timer = self.create_timer(0.5, self.update_graph, callback_group=self._timer_callback_group)
-
-
     def listener_callback(self, msg):
         self._new = True
         if self._first_time == None:
@@ -102,21 +88,7 @@ class AnySubscriber(Node):
             self._x_values.append(self.get_clock().now().nanoseconds - self._first_time)
         self._introspector.introspect(msg, "")
     
-    # def update_graph(self):
-    #     if not self._new:
-    #         self._graph_data.paused = True
-    #         return
-    #     # print(self._introspector.get_data())
-    #     self._new = False
-    #     self._graph_data.paused = False
-    #     data = self._introspector.get_data()
-    #     if len(data) == 0:
-    #         raise ValueError("No numeric fields found!")
 
-    #     self._graph_data.y_values = [data[d] for d in data]
-
-    # def get_graph_data(self):
-    #     return self._graph_data
     
     def get_graph_data(self) -> (list, list, list):
         keys, values = self._introspector.get_data()
@@ -167,11 +139,7 @@ def screen_run(labels: list, y_data: list[list], x_values: list, shutdown):
         
         legend = GraphLegend(screen, labels, graph_data.colours, max_width=screen.width//2, max_height=screen.height//4)
         graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
-        # screen.set_scenes([Scene([graph, legend], duration=graph.stop_frame)])
-        # period = 1.0/10
         while not shutdown:
-            # screen.draw_next_frame()
-            # time.sleep(period)
             try:
                 screen.play([Scene([graph, legend], duration=graph.stop_frame)], stop_on_resize=True)
             except ResizeScreenError:
@@ -221,20 +189,8 @@ def main():
     parser = argparse.ArgumentParser()
     set_args(parser)
 
-    # args = sys.argv[1:]
     args = vars(parser.parse_args(sys.argv[1:]))
     print(args)
-
-    # topic_name = vars["topic_name"]
-    # topic_type = vars["topic_type"]
-
-    # if len(args) != 2:
-    #     raise ValueError(f"Expected exactly two input argument; topic_name and topic_type. instead got: [{args}]")
-    # topic_name = args[0]
-    # try:
-    #     topic_type = get_message(args[1])
-    # except:
-    #     raise ValueError(f"Input type {args[1]} does not exist!")
 
     rclpy.init()
 
@@ -243,14 +199,7 @@ def main():
     except ValueError as e:
         print(e)
         return
-    # topic_name = args["topic_name"]
-    # try:
-    #     topic_type = get_message(args["topic_type"])
-    # except:
-    #     raise ValueError(f"Input type {args["topic_type"]} does not exist!")
-    # topic_type = args["topic_type"]
     fields = ["/"+x for x in args["fields"]] if args["fields"]!=None else None
-    #ssblacklist = ["/"+x for x in args["ignore_fields"]] if args["ignore_fields"]!=None else None
     x_key = "/"+args["x_field"][0] if args["x_field"]!=None else None
     if fields != None and x_key != None and x_key not in fields:
         fields.append(x_key)
