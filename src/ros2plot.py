@@ -179,42 +179,43 @@ def screen_run(labels: list, y_data: list[list], x_values: list, shutdown):
 
 def set_args(parser):
     parser.add_argument('topic_name', help='Name of the topic to subscribe')
-    parser.add_argument('topic_type', help='Type of topic to subscribe to. If missing, will internally attempt to automatically determine the topic type.')
+    parser.add_argument('topic_type', nargs="?", default=None, help='Type of topic to subscribe to. If missing, will internally attempt to automatically determine the topic type.')
     parser.add_argument('--fields', nargs='*', help='Specific fields to plot. Expects directory style path.')
     parser.add_argument('--x-field', nargs=1, help='Specific field to use as x axis. Expects directory style path. If missing, will default to system time')
     parser.add_argument('--ignore-fields', nargs='*', help='Y value fields to ignore, even if it falls under the specified fields. Expects directory style path.')
 
-# def validate_topic(topic_name, topic_type=None):
-#     found = False
-#     node = Node("dummy")
-#     found_type = None
-#     for name, types in node.get_topic_names_and_types():
-#         print(name)
-#         if topic_name != name and topic_name != name.lstrip('/'):
-#             continue
+def validate_topic(topic_name, topic_type=None):
+    found = False
+    node = Node("dummy")
+    time.sleep(0.5)
+    found_type = None
+    for name, types in node.get_topic_names_and_types():
+        print(name)
+        if topic_name != name and topic_name != name.lstrip('/'):
+            continue
+        found = True
+        if topic_type == None:
+            if len(types) > 1:
+                raise ValueError(f"Type of topic '{topic_name}' is ambiguous due to multiple different types on the same topic name'")
+            else:
+                found_type = get_message(types[0])
+        else:
+            try:
+                found_type = get_message(topic_type)
+            except:
+                raise ValueError(f"Input type {topic_type} does not exist!")
         
-#         if topic_type == None:
-#             if len(types) > 1:
-#                 raise ValueError(f"Unable to determine correct type of topic '{topic_name}' due to multiple different types on the same topic name'")
-#             else:
-#                 found_type == types[0]
-#         else:
-#             try:
-#                 found_type = get_message(topic_type)
-#             except:
-#                 raise ValueError(f"Input type {topic_type} does not exist!")
-        
-#         break
+        break
 
-#     if not found:
-#         raise ValueError(f"Unable to find topic '{topic_name}' of input type '{topic_type}'")
-#     if found_type == None:
-#         raise ValueError(f"Topic '{topic_name}' is not of input type '{topic_type}'")
+    if not found:
+        raise ValueError(f"Unable to find topic '{topic_name}'")
+    if found_type == None:
+        raise ValueError(f"Unable to determine type of Topic '{topic_name}'")
 
-#     return topic_name, found_type
+    return topic_name, found_type
 
-#         # print(f"  Topic: {topic_name}")
-#         # print(f"    Types: {', '.join(message_types)}")
+        # print(f"  Topic: {topic_name}")
+        # print(f"    Types: {', '.join(message_types)}")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -237,16 +238,16 @@ def main():
 
     rclpy.init()
 
-    # try:
-    #     topic_name, topic_type = validate_topic(args["topic_name"], args["topic_type"])
-    # except ValueError as e:
-    #     print(e)
-    #     return
-    topic_name = args["topic_name"]
     try:
-        topic_type = get_message(args["topic_type"])
-    except:
-        raise ValueError(f"Input type {args["topic_type"]} does not exist!")
+        topic_name, topic_type = validate_topic(args["topic_name"], args["topic_type"])
+    except ValueError as e:
+        print(e)
+        return
+    # topic_name = args["topic_name"]
+    # try:
+    #     topic_type = get_message(args["topic_type"])
+    # except:
+    #     raise ValueError(f"Input type {args["topic_type"]} does not exist!")
     # topic_type = args["topic_type"]
     fields = ["/"+x for x in args["fields"]] if args["fields"]!=None else None
     #ssblacklist = ["/"+x for x in args["ignore_fields"]] if args["ignore_fields"]!=None else None
