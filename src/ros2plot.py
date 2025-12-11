@@ -170,15 +170,26 @@ def screen_run(labels: list, y_data: list[list], x_values: list, shutdown):
 
         legend = GraphLegend(screen, labels, colours, max_width=screen.width//2, max_height=screen.height//4)
         # graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
-        effects = [y_axis, x_axis] + [plots[p] for p in plots] + [legend]
-        scenes = [Scene(effects, duration=-1)]
+        # effects = [y_axis, x_axis] + [plots[p] for p in plots] + [legend]
+        effects = [y_axis, x_axis]
+        scene = Scene(effects, duration=-1)
 
-        screen.set_scenes(scenes)
+        screen.set_scenes([scene])
         while not shutdown:
             try:
                 update_graph_config(screen, graph_config, y_data, x_values)
                 screen.draw_next_frame()
                 # screen.play([Scene(effects, duration=-1)], stop_on_resize=True)
+                event = screen.get_key()
+                if event == ord('-'):
+                    for p in plots:
+                        if plots[p] in scene.effects:
+                            plots[p].e_clear()
+                            scene.remove_effect(plots[p])
+                elif event == ord('+'):
+                    for p in plots:
+                        if plots[p] not in scene.effects:
+                            scene.add_effect(plots[p])
             except StopApplication:
                 break
             except ResizeScreenError:
