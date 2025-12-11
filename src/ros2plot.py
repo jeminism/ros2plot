@@ -7,14 +7,16 @@ from rosidl_runtime_py.utilities import get_message
 
 from asciimatics.screen import Screen, ManagedScreen
 from asciimatics.scene import Scene
-from asciimatics.exceptions import ResizeScreenError
+from asciimatics.exceptions import ResizeScreenError, StopApplication
 import sys
 
-from effects.graph import GraphXY, GraphData
+# from effects.graph import GraphXY, GraphData
+from effects.effect_base import DrawOffsets
+from effects.graph_components import XAxis, YAxis, Plot, GraphConfigs, PlotData, new_plot_data
 from effects.legend import GraphLegend
 
 from utils.colour_palette import COLOURS, NUM_COLOURS
-from utils.graph_math import min_max
+from utils.graph_math import min_max, multi_min_max, get_mapped_value
 
 import threading
 import time
@@ -122,26 +124,63 @@ def ros_run(node, shutdown):
         shutdown = True
         return
 
+def update_graph_config(screen: Screen, config: GraphConfigs, y_data: list[list], x_values: list):
+    config.width = screen.width-13
+    config.height = screen.height-2
+    if len(x_values) > 0:
+        config.y_min_value, config.y_max_value = multi_min_max(y_data)
+        config.x_min_value, config.x_max_value = min_max(x_values)
+    else:
+        config.y_min_value = config.y_max_value = config.y_min_value = config.y_max_value = 0
+    
+    if config.y_min_value == config.y_max_value:
+        config.y_min_value -= 1
+        config.y_max_value += 1
+    if config.x_min_value == config.x_max_value:
+        config.x_min_value -= 1
+        config.x_max_value += 1
+        
+    config.x = get_mapped_value(0 if config.x_min_value < 0 else config.x_min_value, config.x_max_value, config.width-1, config.x_min_value, 0)
+    config.y = get_mapped_value(0 if config.y_min_value < 0 else config.y_min_value, config.y_max_value, 0, config.y_min_value, config.height-1)
+
+
 def screen_run(labels: list, y_data: list[list], x_values: list, shutdown):
     print(labels, y_data, x_values)
     with ManagedScreen() as screen:
-        graph_data = GraphData()
-        graph_data.x_values = x_values
-        graph_data.y_values = y_data
-        graph_data.paused = False
+        # graph_data = GraphData()
+        # graph_data.x_values = x_values
+        # graph_data.y_values = y_data
+        # graph_data.paused = False
+        graph_config = GraphConfigs()
+        draw_offsets = DrawOffsets()
+        draw_offsets.x = 8
+        draw_offsets.y = 0
 
-        max_label_len = 0
+        plots = {}
+        plot_data = {}
+        colours = []
         for i in range(len(labels)):
-            n = len(labels[i])
-            if n > max_label_len:
-                max_label_len = n
-            graph_data.colours.append(COLOURS[i%NUM_COLOURS])
+            c = COLOURS[i%NUM_COLOURS]
+            colours.append(c)
+            plot_data[labels[i]] = new_plot_data(x_values, y_data[i], c)
+            plots[labels[i]] = Plot(screen, graph_config, plot_data[labels[i]], draw_offsets)
         
-        legend = GraphLegend(screen, labels, graph_data.colours, max_width=screen.width//2, max_height=screen.height//4)
-        graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
+        y_axis = YAxis(screen, graph_config, draw_offsets)
+        x_axis = XAxis(screen, graph_config, draw_offsets)
+
+        legend = GraphLegend(screen, labels, colours, max_width=screen.width//2, max_height=screen.height//4)
+        # graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
+        effects = [y_axis, x_axis] + [plots[p] for p in plots] + [legend]
+        scenes = [Scene(effects, duration=-1)]
+
+        screen.set_scenes(scenes)
         while not shutdown:
             try:
-                screen.play([Scene([graph, legend], duration=graph.stop_frame)], stop_on_resize=True)
+                update_graph_config(screen, graph_config, y_data, x_values)
+                screen.draw_next_frame()
+                # screen.play([Scene(effects, duration=-1)], stop_on_resize=True)
+            except StopApplication:
+                break
             except ResizeScreenError:
                 pass
 
