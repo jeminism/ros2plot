@@ -7,13 +7,16 @@ from rosidl_runtime_py.utilities import get_message
 
 from asciimatics.screen import Screen, ManagedScreen
 from asciimatics.scene import Scene
+from asciimatics.event import KeyboardEvent
 from asciimatics.exceptions import ResizeScreenError, StopApplication
+from asciimatics.widgets.popupdialog import PopUpDialog
 import sys
 
 # from effects.graph import GraphXY, GraphData
 from effects.effect_base import DrawOffsets
 from effects.graph_components import XAxis, YAxis, Plot, GraphConfigs, PlotData, new_plot_data
 from effects.legend import GraphLegend
+from effects.frames import TextInput, TextLabel
 
 from utils.colour_palette import COLOURS, NUM_COLOURS
 from utils.graph_math import min_max, multi_min_max, get_mapped_value
@@ -126,7 +129,7 @@ def ros_run(node, shutdown):
 
 def update_graph_config(screen: Screen, config: GraphConfigs, y_data: list[list], x_values: list):
     config.width = screen.width-13
-    config.height = screen.height-2
+    config.height = screen.height-4
     if len(x_values) > 0:
         config.y_min_value, config.y_max_value = multi_min_max(y_data)
         config.x_min_value, config.x_max_value = min_max(x_values)
@@ -154,7 +157,7 @@ def screen_run(labels: list, y_data: list[list], x_values: list, shutdown):
         graph_config = GraphConfigs()
         draw_offsets = DrawOffsets()
         draw_offsets.x = 8
-        draw_offsets.y = 0
+        draw_offsets.y = 4
 
         plots = {}
         plot_data = {}
@@ -168,32 +171,48 @@ def screen_run(labels: list, y_data: list[list], x_values: list, shutdown):
         y_axis = YAxis(screen, graph_config, draw_offsets)
         x_axis = XAxis(screen, graph_config, draw_offsets)
 
+        header_label = TextLabel(screen, screen.width-10, 3, 5, 0)
+        text_input = TextInput(screen, screen.width-10, 3, 5, 0)
         legend = GraphLegend(screen, labels, colours, max_width=screen.width//2, max_height=screen.height//4)
         # graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
-        # effects = [y_axis, x_axis] + [plots[p] for p in plots] + [legend]
-        effects = [y_axis, x_axis]
+        effects = [header_label, y_axis, x_axis] + [plots[p] for p in plots]
+        # effects = [y_axis, x_axis]
         scene = Scene(effects, duration=-1)
 
         screen.set_scenes([scene])
+        graph_config.pause = False
         while not shutdown:
             try:
                 update_graph_config(screen, graph_config, y_data, x_values)
                 screen.draw_next_frame()
-                # screen.play([Scene(effects, duration=-1)], stop_on_resize=True)
-                event = screen.get_key()
-                if event == ord('-'):
-                    for p in plots:
-                        if plots[p] in scene.effects:
-                            plots[p].e_clear()
-                            scene.remove_effect(plots[p])
-                elif event == ord('+'):
-                    for p in plots:
-                        if plots[p] not in scene.effects:
-                            scene.add_effect(plots[p])
+
+                event = screen.get_event()
+                if not isinstance(event, KeyboardEvent):
+                    continue
+                if text_input in scene.effects:
+                    if event.key_code in (10, 13):
+                        text_input.cleanup()
+                        scene.remove_effect(text_input)
+                        header_label.set_value("topic is: " + text_input.value())
+                    else:
+                        while event:
+                            text_input.process_event(event)
+                            event = screen.get_event()
+                else:
+                    if event.key_code == ord('p'):
+                        graph_config.pause = not graph_config.pause
+                    elif event.key_code == ord('/'):
+                        text_input.clear()
+                        scene.add_effect(text_input)
+                        # text_input.focus()
+
+
+                    
             except StopApplication:
                 break
             except ResizeScreenError:
                 pass
+            time.sleep(0.033) #30hz
 
 def set_args(parser):
     parser.add_argument('topic_name', help='Name of the topic to subscribe')
