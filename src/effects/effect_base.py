@@ -3,6 +3,7 @@ from asciimatics.screen import Screen
 from asciimatics.effects import Effect
 import attrs
 
+@attrs.define
 class DrawOffsets:
     x: int = attrs.field(default=0)
     y: int = attrs.field(default=0)
@@ -15,6 +16,7 @@ class EffectBase(Effect):
     
     def reset(self):
         self._screen.clear()
+
     
     def stop_frame(self):
         return -1

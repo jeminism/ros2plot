@@ -31,11 +31,32 @@ class GraphConfigs:
     y_max_value: int = attrs.field(default=0) # y value corresponding to pixel (x, 0)
     x_min_value: int = attrs.field(default=0) # x value corresponding to pixel (0, y)
     x_max_value: int = attrs.field(default=0) # x value corresponding to pixel (width-1, y)
+    pause: bool = attrs.field(default=False) # flag to dictate if the effect should pause drawing or no
 
-
-class YAxis(EffectBase):
+class GraphEffect(EffectBase):
     def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
         super().__init__(screen, offsets)
+        self._cfg = cfg
+
+    def _update(self, frame_no):
+        if self._cfg.pause:
+            return
+        else:
+            self.e_clear()
+            self._draw(frame_no)
+
+    # def _draw(self, frame_no):
+    #     if self._cfg.pause:
+    #         return
+    #     else:
+    #         self._draw_impl(frame_no)
+    
+    # def _draw_impl(self, frame_no):
+    #     return
+
+class YAxis(GraphEffect):
+    def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
+        super().__init__(screen, cfg, offsets)
         self._cfg = cfg
     
     def _draw(self, frame_no):
@@ -50,9 +71,9 @@ class YAxis(EffectBase):
         s_max = f"{self._cfg.y_max_value:3.2f}"
         self.e_print(s_max, self._cfg.x-min(self._offsets.x, len(s_max)), 0)
 
-class XAxis(EffectBase):
+class XAxis(GraphEffect):
     def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
-        super().__init__(screen, offsets)
+        super().__init__(screen, cfg, offsets)
         self._cfg = cfg
     
     def _draw(self, frame_no):
@@ -82,9 +103,9 @@ def new_plot_data(x_values: list, y_values: list, colour: int, interpolate: bool
     p.high_def = high_def
     return p
 
-class Plot(EffectBase):
+class Plot(GraphEffect):
     def __init__(self, screen: Screen, cfg: GraphConfigs, data: PlotData, offsets: DrawOffsets=DrawOffsets()):
-        super().__init__(screen, offsets)
+        super().__init__(screen, cfg, offsets)
         self._cfg = cfg
         self._data = data
     
@@ -103,10 +124,10 @@ class Plot(EffectBase):
         if self._cfg.y_min_value == self._cfg.y_max_value:
             raise ValueError("Y axis bound invalid! Min value == max value")
 
-        self._draw_impl()
+        self.do_plot()
 
 
-    def _draw_impl(self):
+    def do_plot(self):
         n_vals = len(self._data.x_data)
         use_braille = self._data.high_def
 
