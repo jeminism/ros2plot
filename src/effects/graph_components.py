@@ -82,41 +82,51 @@ class XAxis(GraphEffect):
         for i in range(self._cfg.width):
             self.e_print("-", i, self._cfg.y)
         # draw min and max labels
-        self.e_print(f"{self._cfg.x_min_value:5.2f}", 0, self._cfg.y+1)
-        self.e_print(f"{self._cfg.x_max_value:5.2f}", self._cfg.width-1, self._cfg.y+1)
+        self.e_print(f"{self._cfg.x_min_value:3.2f}", 0, self._cfg.y+1)
+        self.e_print(f"{self._cfg.x_max_value:3.2f}", self._cfg.width-1, self._cfg.y+1)
 
 # represents the plot of a single data set
-@attrs.define
-class PlotData:
-    x_data: list = attrs.field(default=[])
-    y_data: list = attrs.field(default=[])
-    colour: int = attrs.field(default=7)
-    interpolate: bool = attrs.field(default=True)
-    high_def: bool = attrs.field(default=True)
-
-def new_plot_data(x_values: list, y_values: list, colour: int, interpolate: bool=True, high_def: bool=True):
-    p = PlotData()
-    p.x_data = x_values
-    p.y_data = y_values
-    p.colour = colour
-    p.interpolate = interpolate
-    p.high_def = high_def
-    return p
+# @attrs.define
+# class PlotData:
+#     # x_data: list = attrs.field(default=[])
+#     # y_data: list = attrs.field(default=[])
+#     # colour: int = attrs.field(default=7)
+#     interpolate: bool = attrs.field(default=True)
+#     high_def: bool = attrs.field(default=True)
 
 class Plot(GraphEffect):
-    def __init__(self, screen: Screen, cfg: GraphConfigs, data: PlotData, offsets: DrawOffsets=DrawOffsets()):
+    def __init__(self, screen: Screen, cfg: GraphConfigs, y_data: list, x_data: list, offsets: DrawOffsets=DrawOffsets()):
         super().__init__(screen, cfg, offsets)
         self._cfg = cfg
-        self._data = data
+        self._y_data = y_data
+        self._x_data = x_data
+        self._interpolate = True
+        self._high_def = True
+        self._colour = 7
+        
+
+    def set_configs(self, interpolate: bool=None, high_def: bool=None, colour:int=None):
+        if interpolate != None:
+            self._interpolate = interpolate
+        if high_def != None:
+            self._high_def = high_def
+        if colour != None:
+            self._colour = colour
+
+    def set_data(self, y_data: list=None, x_data: list=None):
+        if y_data != None:
+            self._y_data = None
+        if x_data != None:
+            self._x_data = None
     
     def _draw(self, frame_no):
-        if len(self._data.x_data) == 0:
+        if len(self._x_data) == 0:
             return
             
-        if not all(isinstance(x, (int, float)) for x in self._data.x_data) and not all(isinstance(y, (int, float)) for y in self._data.y_data):
+        if not all(isinstance(x, (int, float)) for x in self._x_data) and not all(isinstance(y, (int, float)) for y in self._y_data):
             raise TypeError("All elements must be numeric")
         
-        if len(self._data.x_data) != len(self._data.y_data):
+        if len(self._x_data) != len(self._y_data):
             raise ValueError("X and Y axis data must be of same length")
         
         if self._cfg.x_min_value == self._cfg.x_max_value:
@@ -128,8 +138,8 @@ class Plot(GraphEffect):
 
 
     def do_plot(self):
-        n_vals = len(self._data.x_data)
-        use_braille = self._data.high_def
+        n_vals = len(self._x_data)
+        use_braille = self._high_def
 
         width = self._cfg.width*2 if use_braille else self._cfg.width
         height = self._cfg.height*4 if use_braille else self._cfg.height
@@ -138,13 +148,13 @@ class Plot(GraphEffect):
         prior_x = -1
         prior_y = -1
         for i in range(n_vals):
-            y_index = get_mapped_value(self._data.y_data[i], self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
-            x_index = get_mapped_value(self._data.x_data[i], self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
+            y_index = get_mapped_value(self._y_data[i], self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
+            x_index = get_mapped_value(self._x_data[i], self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
             if x_index > width-1 or x_index < 0:
                 continue
             if y_index > height-1 or y_index < 0:
                 continue
-            if (i > 0 and self._data.interpolate):
+            if (i > 0 and self._interpolate):
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
                     if pt[0] > width-1 or pt[0] < 0:
                         continue
@@ -175,12 +185,12 @@ class Plot(GraphEffect):
                             braille_cells.append(dot_num)
 
                     if len(braille_cells) > 0:
-                        self.e_print(braille_char(braille_cells), i, j, self._data.colour)
+                        self.e_print(braille_char(braille_cells), i, j, self._colour)
                 else:
                     if grid.at(grid.to_index(i, j)):
-                        self.e_print("*", i, j, self._data.colour)
+                        self.e_print("*", i, j, self._colour)
 
         # print last value
-        x_latest_location = min(get_mapped_value(self._data.x_data[-1], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0), self._cfg.width)
-        y_latest_location = get_mapped_value(self._data.y_data[-1], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height-1)
-        self.e_print(f"{self._data.y_data[-1]:3.2f}", x_latest_location, y_latest_location, self._data.colour)
+        x_latest_location = min(get_mapped_value(self._x_data[-1], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0), self._cfg.width)
+        y_latest_location = get_mapped_value(self._y_data[-1], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height-1)
+        self.e_print(f"{self._y_data[-1]:3.2f}", x_latest_location, y_latest_location+1, self._colour)
