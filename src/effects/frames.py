@@ -4,6 +4,7 @@ from asciimatics.widgets.layout import Layout
 from asciimatics.widgets.frame import Frame 
 from asciimatics.widgets.text import Text 
 from asciimatics.widgets.label import Label 
+from asciimatics.widgets.utilities import _split_text
 
 class GenericFrame(Frame):
     def __init__(self, screen, width=None, height=None, x=0, y=0):
@@ -29,7 +30,7 @@ class TextInput(GenericFrame):
         super().__init__(screen, width, height, x, y)
         self.set_theme("monochrome")
         
-        layout = Layout([1])
+        layout = Layout([1, 1])
         self.add_layout(layout)
         layout.add_widget(Text(name="input"))
         self.fix()
@@ -60,3 +61,54 @@ class TextLabel(GenericFrame):
     def set_value(self, value):
         label = self.find_widget("label")
         label.text = value
+
+class ColouredLabel(Label):
+    def __init__(self, label_text: str, height: int=1, colour = None, align: str = "<", name: str = None):
+        super().__init__(label_text, height, align, name)
+        self._colour = colour
+
+    def update(self, frame_no: int):
+        assert self._frame
+        (colour, attr, background) = self._frame.palette[self._pick_palette_key("label",
+                                                                                selected=False,
+                                                                                allow_input_state=False)]
+
+        if self._colour != None:
+            colour = self._colour
+                               
+        for i, text in enumerate(_split_text(self._text, self._w, self._h, self._frame.canvas.unicode_aware)):
+            self._frame.canvas.paint(f"{text:{self._align}{self._w}}",
+                                     self._x,
+                                     self._y + i,
+                                     colour,
+                                     attr,
+                                     background)
+
+PLOT_VISIBILITY_KEY = "visible"
+PLOT_COLOUR_KEY = "colour"
+class Legend(GenericFrame):
+    def __init__(self, screen, width=None, height=None, x=0, y=0):
+        super().__init__(screen, width, height, x, y)
+        self.set_theme("monochrome")
+        self._layout = Layout([1])
+        self.add_layout(self._layout)
+        self.set_plots({"Missing List initialization!": {PLOT_VISIBILITY_KEY:True}})
+    
+    def set_plots(self, plot_visibility: dict):
+        # if graph_colours != None:
+        #     if len(graph_names)!=len(graph_colours):
+        #         raise ValueError("Length of graph colours must be same length as the list of graph names!")
+        if not isinstance(plot_visibility, dict):
+            raise ValueError("Expected dictionary value when populating legend") 
+
+        if not all((isinstance(key, str) and isinstance(plot_visibility[key], dict)) for key in plot_visibility):
+            raise ValueError("Expected dictionary of type: dict[str, dict]")
+            
+        if not all((PLOT_VISIBILITY_KEY in plot_visibility[key]) for key in plot_visibility):
+            raise ValueError(f"Expected key '{PLOT_VISIBILITY_KEY}' in graph visibility dictionaries but it is missing")
+
+        self._layout.clear_widgets()
+        for i in plot_visibility:
+            if plot_visibility[i][PLOT_VISIBILITY_KEY]:
+                self._layout.add_widget(ColouredLabel("· " + i.split("/")[0], colour=(plot_visibility[i][PLOT_COLOUR_KEY] if PLOT_COLOUR_KEY in plot_visibility[i] else None)))
+        self.fix()

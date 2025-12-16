@@ -16,7 +16,7 @@ import sys
 from effects.effect_base import DrawOffsets
 from effects.graph_components import XAxis, YAxis, Plot, GraphConfigs
 from effects.legend import GraphLegend
-from effects.frames import TextInput, TextLabel
+from effects.frames import TextInput, TextLabel, PLOT_COLOUR_KEY, PLOT_VISIBILITY_KEY, Legend
 
 from utils.colour_palette import COLOURS, NUM_COLOURS
 from utils.graph_math import min_max, multi_min_max, get_mapped_value
@@ -41,6 +41,7 @@ class Ros2Plot():
         self._x_key = None
 
         self._plot_data = self._multi_subscriber.get_data()
+        self._plot_visibility = {}
         self._plot_count = 0
 
         self.update_draw_offsets(padding + 6, padding + header_bar_height+1)
@@ -56,6 +57,9 @@ class Ros2Plot():
     def setup_plot(self):
         self._effects["y_axis"] = YAxis(self._screen, self._graph_config, self._draw_offsets)
         self._effects["x_axis"] = XAxis(self._screen, self._graph_config, self._draw_offsets)
+        w = min(self._screen.width // 2, 20)
+        h = min(self._screen.height // 2, 10)
+        self._effects["legend"] = Legend(self._screen, w, h, self._screen.width-w-1, self._draw_offsets.y)
     
     def update_draw_offsets(self, x, y):
         self._draw_offsets.x = x # 6 is standard padding to allow for y value axis labels
@@ -154,10 +158,15 @@ class Ros2Plot():
                 self.initialize_effect(field, Plot(self._screen, self._graph_config, data, self._plot_data.timestamps[topic_name], offsets=self._draw_offsets))
                 c = COLOURS[self._plot_count%NUM_COLOURS]
                 self._effects[field].set_configs(True, True, c)
+                self._plot_visibility[field] = {PLOT_VISIBILITY_KEY:True, PLOT_COLOUR_KEY:c}
                 self._plot_count += 1
 
                 #just add it to the scene for now
                 self.add_effect(field)
+
+    def show_legend(self):
+        self._effects["legend"].set_plots(self._plot_visibility)
+        self.add_effect("legend")
 
     def _handle_event(self, event):
         # while event:
@@ -175,8 +184,17 @@ class Ros2Plot():
             else:
                 if event.key_code == ord('p'):
                     self._graph_config.pause = not self._graph_config.pause
+                elif event.key_code == ord('l'):
+                    if self._effects["legend"] in self._scene.effects:
+                        self._effects["legend"].cleanup()
+                        self.remove_effect("legend")
+                    else:
+                        self.show_legend()
                 elif event.key_code == ord('/'):
                     self._effects["header_input"].clear()
+                    self.add_effect("header_input")
+                elif event.key_code == -204:
+                    # self._effects["header_input"].clear()
                     self.add_effect("header_input")
                 else:
                     self.update_info_message(f"Unrecognized input: '{event.key_code}'")
