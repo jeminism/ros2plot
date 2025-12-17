@@ -16,7 +16,7 @@ import sys
 from effects.effect_base import DrawOffsets
 from effects.graph_components import XAxis, YAxis, Plot, GraphConfigs
 from effects.legend import GraphLegend
-from effects.frames import TextInput, TextLabel, PLOT_COLOUR_KEY, PLOT_VISIBILITY_KEY, Legend
+from effects.frames import TextInput, TextLabel, PLOT_COLOUR_KEY, PLOT_VISIBILITY_KEY, Legend, Selector
 
 from utils.colour_palette import COLOURS, NUM_COLOURS
 from utils.graph_math import min_max, multi_min_max, get_mapped_value
@@ -60,6 +60,7 @@ class Ros2Plot():
         w = min(self._screen.width // 2, 20)
         h = min(self._screen.height // 2, 10)
         self._effects["legend"] = Legend(self._screen, w, h, self._screen.width-w-1, self._draw_offsets.y)
+        self._effects["selector"] = Selector(self._screen, self._screen.width//2, self._screen.height//2, self._screen.width//4, self._draw_offsets.y)
     
     def update_draw_offsets(self, x, y):
         self._draw_offsets.x = x # 6 is standard padding to allow for y value axis labels
@@ -111,7 +112,7 @@ class Ros2Plot():
             return
         
         if self._effects[name] in self._scene.effects:
-            self.update_info_message(f"[EFFECT IN SCENE] Tried to add an effect '{name}' to the scene but this effect is already in the scene")
+            #self.update_info_message(f"[EFFECT IN SCENE] Tried to add an effect '{name}' to the scene but this effect is already in the scene")
             return
         
         self._scene.add_effect(self._effects[name])
@@ -122,9 +123,9 @@ class Ros2Plot():
             return
         
         if self._effects[name] not in self._scene.effects:
-            self.update_info_message(f"[EFFECT NOT IN SCENE] Tried to remove an effect '{name}' from the scene but this effect is not in the scene")
+            #self.update_info_message(f"[EFFECT NOT IN SCENE] Tried to remove an effect '{name}' from the scene but this effect is not in the scene")
             return
-            
+           
         self._scene.remove_effect(self._effects[name])
 
     def update_info_message(self, msg):
@@ -142,7 +143,7 @@ class Ros2Plot():
 
         self._multi_subscriber.add_subscriber(ls_split[0], ls_split[1] if n>1 else None)
         self.update_info_message(self._multi_subscriber.get_info_msg())
-        self.initialize_plots()
+        self.initialize_plots(topic_filter=ls_split[0])
     
     def initialize_plots(self, topic_filter: str = None):
         for i in range(len(self._plot_data.field_keys)):
@@ -168,30 +169,34 @@ class Ros2Plot():
         self._effects["legend"].set_plots(self._plot_visibility)
         self.add_effect("legend")
 
+    def show_selector(self):
+        self._effects["selector"].set_plots(self._plot_visibility)
+        self.add_effect("selector")
+
+    def show_plots(self):
+        for p in self._plot_visibility:
+            if self._plot_visibility[p][PLOT_VISIBILITY_KEY]:
+                self.add_effect(p) 
+            else:
+                self._effects[p].e_clear()
+                self.remove_effect(p)
+
     def _handle_event(self, event):
         self._scene.process_event(event)
-        
         self._handle_display_controls(event)
-        # while event:
-        # event = self._screen.get_event()
-        # tmp = self._scene.process_event(event)
-        # if tmp != None:
-        # else:
-        #     self.update_info_message(f"processed event: '{event}'")
-        #     event = self._screen.get_event()
-        #     # self.update_info_message(f"new event: '{event}'")
-        #     while event:
-        #         self._scene.process_event(event)
-        #         event = self._screen.get_event()
-        #         self.update_info_message(f"tertiary event: '{event}'")
 
     def _handle_display_controls(self, event):
         if isinstance(event, KeyboardEvent):
             if self._effects["header_input"] in self._scene.effects:
                 if event.key_code in (10, 13):
-                        self._effects["header_input"].cleanup()
-                        self.remove_effect("header_input")
-                        self.handle_text_input(self._effects["header_input"].value())
+                    self._effects["header_input"].cleanup()
+                    self.remove_effect("header_input")
+                    self.handle_text_input(self._effects["header_input"].value())
+            elif self._effects["selector"] in self._scene.effects:
+                if event.key_code == ord('s'):
+                    self._effects["selector"].cleanup()
+                    self.remove_effect("selector")
+                    self.show_plots()
             else:
                 if event.key_code == ord('p'):
                     self._graph_config.pause = not self._graph_config.pause
@@ -201,11 +206,12 @@ class Ros2Plot():
                         self.remove_effect("legend")
                     else:
                         self.show_legend()
+                elif event.key_code == ord('s'):
+                    self.show_selector()
                 elif event.key_code == ord('/'):
                     self._effects["header_input"].clear()
                     self.add_effect("header_input")
-                elif event.key_code == -204:
-                    # self._effects["header_input"].clear()
+                elif event.key_code == -204: # UP ARROW
                     self.add_effect("header_input")
 
 

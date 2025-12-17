@@ -4,6 +4,7 @@ from asciimatics.widgets.layout import Layout
 from asciimatics.widgets.frame import Frame 
 from asciimatics.widgets.text import Text 
 from asciimatics.widgets.label import Label 
+from asciimatics.widgets.checkbox import CheckBox 
 from asciimatics.widgets.utilities import _split_text
 
 class GenericFrame(Frame):
@@ -112,3 +113,33 @@ class Legend(GenericFrame):
             if plot_visibility[i][PLOT_VISIBILITY_KEY]:
                 self._layout.add_widget(ColouredLabel("· " + i, colour=(plot_visibility[i][PLOT_COLOUR_KEY] if PLOT_COLOUR_KEY in plot_visibility[i] else None)))
         self.fix()
+
+class Selector(GenericFrame):
+    def __init__(self, screen, width=None, height=None, x=0, y=0):
+        super().__init__(screen, width, height, x, y)
+        self.set_theme("monochrome")
+        self._layout = Layout([1])
+        self.add_layout(self._layout)
+
+    def set_plots(self, plot_visibility: dict):
+        if not isinstance(plot_visibility, dict):
+            raise ValueError("Expected dictionary value when populating legend") 
+
+        if not all((isinstance(key, str) and isinstance(plot_visibility[key], dict)) for key in plot_visibility):
+            raise ValueError("Expected dictionary of type: dict[str, dict]")
+            
+        if not all((PLOT_VISIBILITY_KEY in plot_visibility[key]) for key in plot_visibility):
+            raise ValueError(f"Expected key '{PLOT_VISIBILITY_KEY}' in graph visibility dictionaries but it is missing")
+        self._layout.clear_widgets()
+
+        def toggle_visibility_gen(key):
+            def toggle_visibility():
+                plot_visibility[key][PLOT_VISIBILITY_KEY] = not plot_visibility[key][PLOT_VISIBILITY_KEY]
+            return toggle_visibility
+
+        for i in plot_visibility:
+            c = CheckBox(i, on_change=toggle_visibility_gen(i))
+            c._value = plot_visibility[i][PLOT_VISIBILITY_KEY]
+            self._layout.add_widget(c)
+        self.fix()
+        
