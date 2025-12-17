@@ -169,18 +169,29 @@ class Ros2Plot():
         self.add_effect("legend")
 
     def _handle_event(self, event):
+        self._scene.process_event(event)
+        
+        self._handle_display_controls(event)
         # while event:
         # event = self._screen.get_event()
+        # tmp = self._scene.process_event(event)
+        # if tmp != None:
+        # else:
+        #     self.update_info_message(f"processed event: '{event}'")
+        #     event = self._screen.get_event()
+        #     # self.update_info_message(f"new event: '{event}'")
+        #     while event:
+        #         self._scene.process_event(event)
+        #         event = self._screen.get_event()
+        #         self.update_info_message(f"tertiary event: '{event}'")
+
+    def _handle_display_controls(self, event):
         if isinstance(event, KeyboardEvent):
             if self._effects["header_input"] in self._scene.effects:
                 if event.key_code in (10, 13):
-                    self._effects["header_input"].cleanup()
-                    self.remove_effect("header_input")
-                    self.handle_text_input(self._effects["header_input"].value())
-                else:
-                    while event:
-                        self._effects["header_input"].process_event(event)
-                        event = self._screen.get_event()
+                        self._effects["header_input"].cleanup()
+                        self.remove_effect("header_input")
+                        self.handle_text_input(self._effects["header_input"].value())
             else:
                 if event.key_code == ord('p'):
                     self._graph_config.pause = not self._graph_config.pause
@@ -196,8 +207,7 @@ class Ros2Plot():
                 elif event.key_code == -204:
                     # self._effects["header_input"].clear()
                     self.add_effect("header_input")
-                else:
-                    self.update_info_message(f"Unrecognized input: '{event.key_code}'")
+
 
         
 
