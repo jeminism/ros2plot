@@ -111,7 +111,7 @@ class Legend(GenericFrame):
         self._layout.clear_widgets()
         for i in plot_visibility:
             if plot_visibility[i][PLOT_VISIBILITY_KEY]:
-                self._layout.add_widget(ColouredLabel("· " + i, colour=(plot_visibility[i][PLOT_COLOUR_KEY] if PLOT_COLOUR_KEY in plot_visibility[i] else None)))
+                self._layout.add_widget(ColouredLabel("• " + i, colour=(plot_visibility[i][PLOT_COLOUR_KEY] if PLOT_COLOUR_KEY in plot_visibility[i] else None)))
         self.fix()
 
 class Selector(GenericFrame):

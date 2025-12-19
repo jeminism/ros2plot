@@ -14,7 +14,7 @@ import sys
 
 # from effects.graph import GraphXY, GraphData
 from effects.effect_base import DrawOffsets
-from effects.graph_components import XAxis, YAxis, Plot, GraphConfigs
+from effects.graph_components import XAxis, YAxis, Plot, GraphConfigs, GraphInspector
 from effects.legend import GraphLegend
 from effects.frames import TextInput, TextLabel, PLOT_COLOUR_KEY, PLOT_VISIBILITY_KEY, Legend, Selector
 
@@ -61,6 +61,7 @@ class Ros2Plot():
         h = min(self._screen.height // 2, 10)
         self._effects["legend"] = Legend(self._screen, w, h, self._screen.width-w-1, self._draw_offsets.y)
         self._effects["selector"] = Selector(self._screen, self._screen.width//2, self._screen.height//2, self._screen.width//4, self._draw_offsets.y)
+        self._effects["inspector"] = GraphInspector(self._screen, self._graph_config, self._plot_data, self._plot_visibility, offsets=self._draw_offsets)
     
     def update_draw_offsets(self, x, y):
         self._draw_offsets.x = x # 6 is standard padding to allow for y value axis labels
@@ -73,7 +74,8 @@ class Ros2Plot():
         if len(y_data) > 0 and len(y_data[0]) > 0:
             self._graph_config.y_min_value, self._graph_config.y_max_value = multi_min_max(y_data)
             if x_values == None:
-                self._graph_config.x_min_value = self._start_time
+                first_time = next(iter(self._plot_data.timestamps.values()))
+                self._graph_config.x_min_value = first_time[0] if len(first_time) > 0 else self._start_time
                 self._graph_config.x_max_value = self._multi_subscriber.get_time()
             else:
                 self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(x_values)
@@ -148,7 +150,6 @@ class Ros2Plot():
     def initialize_plots(self, topic_filter: str = None):
         for i in range(len(self._plot_data.field_keys)):
             field = self._plot_data.field_keys[i]
-            self.update_info_message(field)
             if topic_filter != None:
                 if topic_filter not in field:
                     continue
@@ -165,6 +166,7 @@ class Ros2Plot():
                 #just add it to the scene for now
                 self.add_effect(field)
 
+
     def show_legend(self):
         self._effects["legend"].set_plots(self._plot_visibility)
         self.add_effect("legend")
@@ -172,6 +174,10 @@ class Ros2Plot():
     def show_selector(self):
         self._effects["selector"].set_plots(self._plot_visibility)
         self.add_effect("selector")
+        
+    def show_inspector(self):
+        self._effects["inspector"].set_x_value()
+        self.add_effect("inspector")
 
     def show_plots(self):
         for p in self._plot_visibility:
@@ -199,7 +205,8 @@ class Ros2Plot():
                     self.show_plots()
             else:
                 if event.key_code == ord('p'):
-                    self._graph_config.pause = not self._graph_config.pause
+                    if self._effects["inspector"] not in self._scene.effects:
+                        self._graph_config.pause = not self._graph_config.pause
                 elif event.key_code == ord('l'):
                     if self._effects["legend"] in self._scene.effects:
                         self._effects["legend"].cleanup()
@@ -213,6 +220,22 @@ class Ros2Plot():
                     self.add_effect("header_input")
                 elif event.key_code == -204: # UP ARROW
                     self.add_effect("header_input")
+                elif event.key_code == -203: # LEFT ARROW
+                    if self._effects["inspector"] in self._scene.effects:
+                        self._effects["inspector"].scroll_down_x()
+                elif event.key_code == -205: # RIGHT ARROW
+                    if self._effects["inspector"] in self._scene.effects:
+                        self._effects["inspector"].scroll_up_x()
+                elif event.key_code == ord('i'):
+                    if self._effects["inspector"] in self._scene.effects:
+                        self._graph_config.pause = False
+                        self._effects["inspector"].e_clear()
+                        self.remove_effect("inspector")
+                    else:
+                        self._graph_config.pause = True
+                        self.show_inspector()
+                else:
+                    self.update_info_message(f"Unhandled Key press '{event.key_code}'")
 
 
         
@@ -229,7 +252,8 @@ class Ros2Plot():
             # self.update_info_message(f"{count}")
             count +=1
             try:
-                self.update_graph_config(self._plot_data.field_data)
+                if not self._graph_config.pause:
+                    self.update_graph_config(self._plot_data.field_data)
                 self._screen.draw_next_frame()
                 # self._handle_event()
                 event = self._screen.get_event()

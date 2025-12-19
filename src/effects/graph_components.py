@@ -8,8 +8,11 @@ from utils.grid import Grid
 from asciimatics.screen import Screen
 from effects.effect_base import EffectBase, DrawOffsets
 
+from effects.frames import PLOT_COLOUR_KEY, PLOT_VISIBILITY_KEY
+
 # from typing import TypedDict, List
 import attrs
+import math
 
 @attrs.define
 class GraphData:
@@ -39,11 +42,15 @@ class GraphEffect(EffectBase):
         self._cfg = cfg
 
     def _update(self, frame_no):
-        if self._cfg.pause:
-            return
-        else:
-            self.e_clear()
-            self._draw(frame_no)
+        # if self._cfg.pause:
+        #     self._redraw()
+        # else:
+        self.e_clear()
+        self._draw(frame_no)
+    
+    def _redraw(self):
+        for ls, x, y, c in self._edited:
+            self._screen.print_at(ls, x, y, c)
 
     # def _draw(self, frame_no):
     #     if self._cfg.pause:
@@ -54,10 +61,104 @@ class GraphEffect(EffectBase):
     # def _draw_impl(self, frame_no):
     #     return
 
-class YAxis(GraphEffect):
-    def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
-        super().__init__(screen, cfg, offsets)
+class GraphInspector(EffectBase):
+    def __init__(self, screen: Screen, cfg: GraphConfigs, plot_data, plot_visibility, x_key=None, initial_x_value=None, offsets: DrawOffsets=DrawOffsets()):
+        super().__init__(screen, offsets)
         self._cfg = cfg
+        self._plot_data = plot_data
+        self._plot_visibility = plot_visibility
+        self._x_key = x_key
+        # self._x_index = self.map_x_index(initial_x_value if initial_x_value != None else (self._cfg.x_max_value + self._cfg.x_min_value) / 2)
+        self._x_value = initial_x_value
+
+    def _draw(self, frame_no):
+        # if self._x_index < 0:
+        #     raise ValueError("mapped x value < 0") 
+        # if self._x_index > len(self._x_data):
+        #     raise ValueError("mapped x value > list size") 
+        if self._x_value == None:
+            return
+        #print line indicating current scroll position
+        x = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+        for y in range(self._cfg.height-1):
+            self.e_print("│", x, y)
+        
+        x_index = None
+        x_data = None
+        if self._x_key != None:
+            for i in range(len(self._plot_data.field_keys)):
+                if self._plot_data.field_keys[i] == self._x_key:
+                    x_index = self.get_closest_index(self._x_value, self._plot_data.field_data[i])
+                    if x_index != -1:
+                        x_data = get_mapped_value(self._plot_data.field_keys[i][x_index], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+                    break
+            if x_index == None:
+                raise ValueError(f"provided x key '{self._x_key}', but this key is non existent in the plot data")
+
+        for i in range(len(self._plot_data.field_keys)):
+            field_name = self._plot_data.field_keys[i]
+            if not self._plot_visibility[field_name][PLOT_VISIBILITY_KEY]:
+                continue
+
+            if self._x_key == None:
+                topic_name = field_name.split("/")[0]
+                x_index = self.get_closest_index(self._x_value, self._plot_data.timestamps[topic_name])
+                x_data = get_mapped_value(self._plot_data.timestamps[topic_name][x_index], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+            
+            if x_index == -1:
+                continue
+            y_val = self._plot_data.field_data[i][x_index]
+            y_data = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height-1)
+            self.e_print(f"⮾ {y_val}", x_data, y_data, self._plot_visibility[field_name][PLOT_COLOUR_KEY])
+    
+    def set_x_value(self, x_val=None):
+        self._x_value = x_val if x_val != None else (self._cfg.x_max_value + self._cfg.x_min_value) / 2
+    
+    def get_x_value(self):
+        return self._x_value
+
+    def set_x_key(self, x_key):
+        self._x_key = x_key
+    
+    def get_closest_index(self, val, data):
+        err = math.inf
+        res = -1
+        for i in range(len(data)):
+            tmp = abs(data[i] - val)
+            if tmp < err:
+                err = tmp
+                res = i
+            if tmp > err:
+                break #break early, just do first match
+        return res
+    
+    def scroll_up_x(self):
+        d = (self._cfg.x_max_value - self._cfg.x_min_value) / 400 #arbitrary 400 steps
+        n_val = self._x_value + d
+        if self._x_value < n_val:
+            self._x_value = min(n_val, self._cfg.x_max_value)
+        else:
+            self._x_value = max(n_val, self._cfg.x_max_value)
+        
+
+    def scroll_down_x(self):
+        d = (self._cfg.x_max_value - self._cfg.x_min_value) / 400 #arbitrary 400 steps
+        n_val = self._x_value - d
+        if self._x_value < n_val:
+            self._x_value = min(n_val, self._cfg.x_min_value)
+        else:
+            self._x_value = max(n_val, self._cfg.x_min_value)
+        
+
+
+
+
+
+
+class YAxis(GraphEffect):
+    # def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
+    #     super().__init__(screen, cfg, offsets)
+    #     self._cfg = cfg
     
     def _draw(self, frame_no):
         if self._cfg.height == 0:
@@ -72,9 +173,9 @@ class YAxis(GraphEffect):
         self.e_print(s_max, self._cfg.x-min(self._offsets.x, len(s_max)), 0)
 
 class XAxis(GraphEffect):
-    def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
-        super().__init__(screen, cfg, offsets)
-        self._cfg = cfg
+    # def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
+    #     super().__init__(screen, cfg, offsets)
+    #     self._cfg = cfg
     
     def _draw(self, frame_no):
         if self._cfg.width == 0:
@@ -147,6 +248,7 @@ class Plot(GraphEffect):
         grid = Grid(width, height)
         prior_x = -1
         prior_y = -1
+        last = -1
         for i in range(n_vals):
             y_index = get_mapped_value(self._y_data[i], self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
             x_index = get_mapped_value(self._x_data[i], self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
@@ -165,6 +267,7 @@ class Plot(GraphEffect):
                 grid.set_value(grid.to_index(x_index, y_index), True)
             prior_x = x_index
             prior_y = y_index
+            last = i
         
         # parse chars
         for i in range(self._cfg.width):
@@ -191,6 +294,7 @@ class Plot(GraphEffect):
                         self.e_print("*", i, j, self._colour)
 
         # print last value
-        x_latest_location = min(get_mapped_value(self._x_data[-1], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0), self._cfg.width)
-        y_latest_location = get_mapped_value(self._y_data[-1], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height-1)
-        self.e_print(f"{self._y_data[-1]:3.2f}", x_latest_location, y_latest_location+1, self._colour)
+        if last != -1:
+            x_latest_location = min(get_mapped_value(self._x_data[last], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0), self._cfg.width)
+            y_latest_location = get_mapped_value(self._y_data[last], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height-1)
+            self.e_print(f"{self._y_data[last]:3.2f}", x_latest_location, y_latest_location+1, self._colour)

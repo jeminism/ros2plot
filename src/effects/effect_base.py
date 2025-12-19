@@ -24,11 +24,11 @@ class EffectBase(Effect):
     def e_print(self, string, x_in, y_in, colour=7):
         x = x_in + self._offsets.x
         y = y_in + self._offsets.y
-        self._edited.append(([len(s) for s in string.split("\n")],x,y))
+        self._edited.append(([len(s) for s in string.split("\n")],x,y,colour))
         self._screen.print_at(string, x, y, colour)
     
     def e_clear(self):
-        for ls, x, y in self._edited:
+        for ls, x, y, c in self._edited:
             self._screen.print_at("\n".join([" "*n for n in ls]), x, y)
         self._edited = []
 
