@@ -323,5 +323,5 @@ class Plot(GraphEffect):
         # print last value
         if last != -1:
             x_latest_location = min(get_mapped_value(self._x_data[last], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0), self._cfg.width)
-            y_latest_location = get_mapped_value(self._y_data[last], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height-1)
-            self.e_print(f"{self._y_data[last]:3.2f}", x_latest_location, y_latest_location+1, self._colour)
+            y_latest_location = get_mapped_value(self._y_data[last], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+            self.e_print(f"{self._y_data[last]:3.2f}", x_latest_location+1, y_latest_location, self._colour)
