@@ -218,8 +218,6 @@ class Ros2Plot():
                 elif event.key_code == ord('/'):
                     self._effects["header_input"].clear()
                     self.add_effect("header_input")
-                elif event.key_code == -204: # UP ARROW
-                    self.add_effect("header_input")
                 elif event.key_code == ord('i'):
                     if self._effects["inspector"] in self._scene.effects:
                         self._graph_config.pause = False
