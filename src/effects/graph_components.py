@@ -11,6 +11,8 @@ from asciimatics.event import KeyboardEvent, MouseEvent
 
 from effects.frames import PLOT_COLOUR_KEY, PLOT_VISIBILITY_KEY
 
+import utils.key_codes as KEY_CODES
+
 # from typing import TypedDict, List
 import attrs
 import math
@@ -37,46 +39,163 @@ class GraphConfigs:
     x_max_value: int = attrs.field(default=0) # x value corresponding to pixel (width-1, y)
     pause: bool = attrs.field(default=False) # flag to dictate if the effect should pause drawing or no
 
+
+class GraphPoint():
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+    @property
+    def x(self):
+        return self._x
+    @x.setter
+    def x(self, new_x):
+        self._x = new_x
+    @property
+    def y(self):
+        return self._y
+    @y.setter
+    def y(self, new_y):
+        self._y = new_y
+    def set(self, x, y):
+        self._x = x
+        self._y = y
+
 class GraphEffect(EffectBase):
     def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
         super().__init__(screen, offsets)
         self._cfg = cfg
 
-    # def _update(self, frame_no):
-    #     # if self._cfg.pause:
-    #     #     self._redraw()
-    #     # else:
-    #     self.e_clear()
-    #     self._draw(frame_no)
+class GraphZoomSelector(GraphEffect):
+    def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
+        super().__init__(screen, cfg, offsets)
+        self.pt_1 = GraphPoint(self._cfg.x_min_value, self._cfg.y_min_value)
+        self.pt_2 = GraphPoint(self._cfg.x_max_value, self._cfg.y_max_value)
+        self._focus = 0
     
-    # def _redraw(self):
-    #     for ls, x, y, c in self._edited:
-    #         self._screen.print_at(ls, x, y, c)
+    def reset(self):
+        # x_quat = abs(self._cfg.x_max_value - self._cfg.x_min_value) / 4
+        # y_quat = abs(self._cfg.y_max_value - self._cfg.y_min_value) / 4
+        # self.pt_1.set(self._cfg.x_min_value+x_quat, self._cfg.y_min_value+y_quat)
+        # self.pt_2.set(self._cfg.x_max_value-x_quat, self._cfg.y_max_value-y_quat)
+        self.pt_1.set(self._cfg.x_min_value, self._cfg.y_min_value)
+        self.pt_2.set(self._cfg.x_max_value, self._cfg.y_max_value )
+        self._focus = 0
 
-    # def _draw(self, frame_no):
-    #     if self._cfg.pause:
-    #         return
-    #     else:
-    #         self._draw_impl(frame_no)
+    def _draw(self, frame_no):
+        x_1_index = get_mapped_value(self.pt_1.x, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+        y_1_index = get_mapped_value(self.pt_1.y, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+        x_2_index = get_mapped_value(self.pt_2.x, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+        y_2_index = get_mapped_value(self.pt_2.y, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+
+        y_min, y_max = min_max([y_1_index, y_2_index])
+        x_min, x_max = min_max([x_1_index, x_2_index])
+        if y_min != y_max:
+            for y in range(y_min, y_max):
+                self.e_print("╎", x_min, y)
+                self.e_print("╎", x_max, y)
+        if x_min != x_max:
+            for x in range(x_min, x_max):
+                self.e_print("╌", x, y_min)
+                self.e_print("╌", x, y_max)
+        
+        
+        self.e_print("X" if self._focus!=2 else "x", x_1_index, y_1_index, COLOURS[1] if self._focus!=2 else 7)
+        self.e_print("X" if self._focus!=1 else "x", x_2_index, y_2_index, COLOURS[1] if self._focus!=1 else 7)
+        self.e_print("┌", x_min, y_min)
+        self.e_print("┘", x_max, y_max)
     
-    # def _draw_impl(self, frame_no):
-    #     return
+    def get_points_string(self):
+        return f"point_1: [{self.pt_1.x:5}, {self.pt_1.y:5}], point_2: [{self.pt_2.x:5}, {self.pt_2.y:5}]"
+        
+    def tooltip(self):
+        return f"TAB : Cycle point control | ↑←↓→ : move controlled points | CTRL+move : Move slower"
+
+    def scroll_up_x(self, step=100):
+        d = (self._cfg.x_max_value - self._cfg.x_min_value) / step
+        if self._focus!=2:
+            self.move_pt(self.pt_1, d, 0)
+        if self._focus!=1:
+            self.move_pt(self.pt_2, d, 0)
+    
+    def scroll_down_x(self, step=100):
+        d = (self._cfg.x_max_value - self._cfg.x_min_value) / step
+        if self._focus!=2:
+            self.move_pt(self.pt_1, -d, 0)
+        if self._focus!=1:
+            self.move_pt(self.pt_2, -d, 0)
+
+    def scroll_up_y(self, step=100):
+        d = (self._cfg.y_max_value - self._cfg.y_min_value) / step
+        if self._focus!=2:
+            self.move_pt(self.pt_1, 0, d)
+        if self._focus!=1:
+            self.move_pt(self.pt_2, 0, d)
+    
+    def scroll_down_y(self, step=100):
+        d = (self._cfg.y_max_value - self._cfg.y_min_value) / step
+        if self._focus!=2:
+            self.move_pt(self.pt_1, 0, -d)
+        if self._focus!=1:
+            self.move_pt(self.pt_2, 0, -d)
+
+    def move_pt(self, point, dx, dy):
+        cand_x = point.x + dx
+        cand_y = point.y + dy
+        if cand_x < self._cfg.x_min_value:
+            point.x = self._cfg.x_min_value
+        elif cand_x > self._cfg.x_max_value:
+            point.x = self._cfg.x_max_value
+        else:
+            point.x = cand_x
+            
+        if cand_y < self._cfg.y_min_value:
+            point.y = self._cfg.y_min_value
+        elif cand_y > self._cfg.y_max_value:
+            point.y = self._cfg.y_max_value
+        else:
+            point.y = cand_y
+
+    def process_event(self, event):
+        if isinstance(event, KeyboardEvent):
+            if event.key_code == KEY_CODES.TAB: # TAB
+                self._focus = (self._focus+1)%3
+                return None
+            if event.key_code == KEY_CODES.LEFT: # LEFT ARROW
+                self.scroll_down_x(self._cfg.width/2)
+                return None
+            if event.key_code == KEY_CODES.RIGHT: # RIGHT ARROW
+                self.scroll_up_x(self._cfg.width/2)
+                return None
+            if event.key_code == KEY_CODES.CTRL_LEFT: # CTRL + LEFT ARROW
+                self.scroll_down_x(self._cfg.width*10)
+                return None
+            if event.key_code == KEY_CODES.CTRL_RIGHT: # CTRL + RIGHT ARROW
+                self.scroll_up_x(self._cfg.width*10)
+                return None
+            if event.key_code == KEY_CODES.UP: # UP ARROW
+                self.scroll_up_y(self._cfg.height)
+                return None
+            if event.key_code == KEY_CODES.DOWN: # DOWN ARROW
+                self.scroll_down_y(self._cfg.height)
+                return None
+            if event.key_code == KEY_CODES.CTRL_UP: # CTRL + UP ARROW
+                self.scroll_up_y(self._cfg.height*6)
+                return None
+            if event.key_code == KEY_CODES.CTRL_DOWN: # CTRL + DOWN ARROW
+                self.scroll_down_y(self._cfg.height*6)
+                return None
+
+        return event
 
 class GraphInspector(GraphEffect):
     def __init__(self, screen: Screen, cfg: GraphConfigs, plot_data, plot_visibility, x_key=None, initial_x_value=None, offsets: DrawOffsets=DrawOffsets()):
         super().__init__(screen, cfg, offsets)
-        # self._cfg = cfg
         self._plot_data = plot_data
         self._plot_visibility = plot_visibility
         self._x_key = x_key
-        # self._x_index = self.map_x_index(initial_x_value if initial_x_value != None else (self._cfg.x_max_value + self._cfg.x_min_value) / 2)
         self._x_value = initial_x_value
 
     def _draw(self, frame_no):
-        # if self._x_index < 0:
-        #     raise ValueError("mapped x value < 0") 
-        # if self._x_index > len(self._x_data):
-        #     raise ValueError("mapped x value > list size") 
         if self._x_value == None:
             return
         #print line indicating current scroll position
@@ -125,6 +244,9 @@ class GraphInspector(GraphEffect):
     def set_x_key(self, x_key):
         self._x_key = x_key
     
+    def tooltip(self):
+        return f"← : Move Left | → : Move Right | CTRL+move : Move slower"
+    
     def get_closest_index(self, val, data):
         err = math.inf
         res = -1
@@ -157,23 +279,17 @@ class GraphInspector(GraphEffect):
 
     def process_event(self, event):
         if isinstance(event, KeyboardEvent):
-            if event.key_code == -203: # LEFT ARROW
-                self.scroll_down_x(self._cfg.width)
+            if event.key_code == KEY_CODES.LEFT: # LEFT ARROW
+                self.scroll_down_x(self._cfg.width/2)
                 return None
-            if event.key_code == -205: # RIGHT ARROW
-                self.scroll_up_x(self._cfg.width)
+            if event.key_code == KEY_CODES.RIGHT: # RIGHT ARROW
+                self.scroll_up_x(self._cfg.width/2)
                 return None
-            if event.key_code == 393: # SHIFT + LEFT ARROW
-                self.scroll_down_x(self._cfg.width/5)
-                return None
-            if event.key_code == 402: # SHIFT + RIGHT ARROW
-                self.scroll_up_x(self._cfg.width/5)
-                return None
-            if event.key_code == 569: # CTRL + RIGHT ARROW
-                self.scroll_up_x(self._cfg.width*10)
-                return None
-            if event.key_code == 554: # CTRL + LEFT ARROW
+            if event.key_code == KEY_CODES.CTRL_LEFT: # CTRL + LEFT ARROW
                 self.scroll_down_x(self._cfg.width*10)
+                return None
+            if event.key_code == KEY_CODES.CTRL_RIGHT: # CTRL + RIGHT ARROW
+                self.scroll_up_x(self._cfg.width*10)
                 return None
 
         return event
@@ -183,9 +299,6 @@ class GraphInspector(GraphEffect):
 
 
 class YAxis(GraphEffect):
-    # def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
-    #     super().__init__(screen, cfg, offsets)
-    #     self._cfg = cfg
     
     def _draw(self, frame_no):
         if self._cfg.height == 0:
@@ -200,9 +313,6 @@ class YAxis(GraphEffect):
         self.e_print(s_max, self._cfg.x-min(self._offsets.x, len(s_max)), 0)
 
 class XAxis(GraphEffect):
-    # def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
-    #     super().__init__(screen, cfg, offsets)
-    #     self._cfg = cfg
     
     def _draw(self, frame_no):
         if self._cfg.width == 0:
