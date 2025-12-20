@@ -41,16 +41,16 @@ class GraphEffect(EffectBase):
         super().__init__(screen, offsets)
         self._cfg = cfg
 
-    def _update(self, frame_no):
-        # if self._cfg.pause:
-        #     self._redraw()
-        # else:
-        self.e_clear()
-        self._draw(frame_no)
+    # def _update(self, frame_no):
+    #     # if self._cfg.pause:
+    #     #     self._redraw()
+    #     # else:
+    #     self.e_clear()
+    #     self._draw(frame_no)
     
-    def _redraw(self):
-        for ls, x, y, c in self._edited:
-            self._screen.print_at(ls, x, y, c)
+    # def _redraw(self):
+    #     for ls, x, y, c in self._edited:
+    #         self._screen.print_at(ls, x, y, c)
 
     # def _draw(self, frame_no):
     #     if self._cfg.pause:
