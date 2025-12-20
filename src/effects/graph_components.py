@@ -7,6 +7,7 @@ from utils.grid import Grid
 
 from asciimatics.screen import Screen
 from effects.effect_base import EffectBase, DrawOffsets
+from asciimatics.event import KeyboardEvent, MouseEvent
 
 from effects.frames import PLOT_COLOUR_KEY, PLOT_VISIBILITY_KEY
 
@@ -61,10 +62,10 @@ class GraphEffect(EffectBase):
     # def _draw_impl(self, frame_no):
     #     return
 
-class GraphInspector(EffectBase):
+class GraphInspector(GraphEffect):
     def __init__(self, screen: Screen, cfg: GraphConfigs, plot_data, plot_visibility, x_key=None, initial_x_value=None, offsets: DrawOffsets=DrawOffsets()):
-        super().__init__(screen, offsets)
-        self._cfg = cfg
+        super().__init__(screen, cfg, offsets)
+        # self._cfg = cfg
         self._plot_data = plot_data
         self._plot_visibility = plot_visibility
         self._x_key = x_key
@@ -80,7 +81,7 @@ class GraphInspector(EffectBase):
             return
         #print line indicating current scroll position
         x = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
-        for y in range(self._cfg.height-1):
+        for y in range(self._cfg.height):
             self.e_print("│", x, y)
         
         x_index = None
@@ -97,18 +98,22 @@ class GraphInspector(EffectBase):
 
         for i in range(len(self._plot_data.field_keys)):
             field_name = self._plot_data.field_keys[i]
+            if len(self._plot_data.field_data[i]) == 0:
+                return
+
             if not self._plot_visibility[field_name][PLOT_VISIBILITY_KEY]:
                 continue
 
             if self._x_key == None:
                 topic_name = field_name.split("/")[0]
                 x_index = self.get_closest_index(self._x_value, self._plot_data.timestamps[topic_name])
-                x_data = get_mapped_value(self._plot_data.timestamps[topic_name][x_index], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+                if x_index != -1:
+                    x_data = get_mapped_value(self._plot_data.timestamps[topic_name][x_index], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
             
             if x_index == -1:
                 continue
             y_val = self._plot_data.field_data[i][x_index]
-            y_data = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height-1)
+            y_data = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
             self.e_print(f"⮾ {y_val}", x_data, y_data, self._plot_visibility[field_name][PLOT_COLOUR_KEY])
     
     def set_x_value(self, x_val=None):
@@ -132,8 +137,8 @@ class GraphInspector(EffectBase):
                 break #break early, just do first match
         return res
     
-    def scroll_up_x(self):
-        d = (self._cfg.x_max_value - self._cfg.x_min_value) / 400 #arbitrary 400 steps
+    def scroll_up_x(self, step=100):
+        d = (self._cfg.x_max_value - self._cfg.x_min_value) / step
         n_val = self._x_value + d
         if self._x_value < n_val:
             self._x_value = min(n_val, self._cfg.x_max_value)
@@ -141,8 +146,8 @@ class GraphInspector(EffectBase):
             self._x_value = max(n_val, self._cfg.x_max_value)
         
 
-    def scroll_down_x(self):
-        d = (self._cfg.x_max_value - self._cfg.x_min_value) / 400 #arbitrary 400 steps
+    def scroll_down_x(self, step=100):
+        d = (self._cfg.x_max_value - self._cfg.x_min_value) / step
         n_val = self._x_value - d
         if self._x_value < n_val:
             self._x_value = min(n_val, self._cfg.x_min_value)
@@ -150,7 +155,29 @@ class GraphInspector(EffectBase):
             self._x_value = max(n_val, self._cfg.x_min_value)
         
 
+    def process_event(self, event):
+        if isinstance(event, KeyboardEvent):
+            if event.key_code == -203: # LEFT ARROW
+                self.scroll_down_x(self._cfg.width)
+                return None
+            if event.key_code == -205: # RIGHT ARROW
+                self.scroll_up_x(self._cfg.width)
+                return None
+            if event.key_code == 393: # SHIFT + LEFT ARROW
+                self.scroll_down_x(self._cfg.width/5)
+                return None
+            if event.key_code == 402: # SHIFT + RIGHT ARROW
+                self.scroll_up_x(self._cfg.width/5)
+                return None
+            if event.key_code == 569: # CTRL + RIGHT ARROW
+                self.scroll_up_x(self._cfg.width*10)
+                return None
+            if event.key_code == 554: # CTRL + LEFT ARROW
+                self.scroll_down_x(self._cfg.width*10)
+                return None
 
+        return event
+        
 
 
 

@@ -220,12 +220,6 @@ class Ros2Plot():
                     self.add_effect("header_input")
                 elif event.key_code == -204: # UP ARROW
                     self.add_effect("header_input")
-                elif event.key_code == -203: # LEFT ARROW
-                    if self._effects["inspector"] in self._scene.effects:
-                        self._effects["inspector"].scroll_down_x()
-                elif event.key_code == -205: # RIGHT ARROW
-                    if self._effects["inspector"] in self._scene.effects:
-                        self._effects["inspector"].scroll_up_x()
                 elif event.key_code == ord('i'):
                     if self._effects["inspector"] in self._scene.effects:
                         self._graph_config.pause = False
@@ -254,6 +248,10 @@ class Ros2Plot():
             try:
                 if not self._graph_config.pause:
                     self.update_graph_config(self._plot_data.field_data)
+                
+                if self._effects["inspector"] in self._scene.effects:
+                    self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
+
                 self._screen.draw_next_frame()
                 # self._handle_event()
                 event = self._screen.get_event()
