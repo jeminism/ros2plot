@@ -28,10 +28,11 @@ from anysub import MultiSubscriber, TopicData, CALLBACK_TIMESTAMP_KEY
 
 class Ros2Plot():
     def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber):
-        self._screen = screen
         self._scene = Scene([], duration=-1)
+        self._screen = screen
+        self._screen.set_scenes([self._scene])
         self._padding = padding
-        # self._header_bar_height = header_bar_height
+        self._header_bar_height = header_bar_height
         self._effects = {}
         self._graph_config = GraphConfigs()
         self._draw_offsets = DrawOffsets()
@@ -50,6 +51,36 @@ class Ros2Plot():
         self.setup_info_bar(self._screen.width-2*padding, header_bar_height, padding, padding)
         # self.setup_tooltip(self._screen.width-2*padding, 3, padding, self._screen.height-3-padding)
         self.setup_plot()
+        
+        self.add_base_effects()
+        # self.update_tooltip(self.tooltip())
+        self.update_info_message("Ros2Plot Initialized!")
+    
+    def set_screen(self, screen):
+        readd = []
+        for name in self._effects:
+            if self._effects[name] in self._scene.effects:
+                readd.append(name)
+
+        self._screen = screen
+        self._scene = Scene([], duration=-1)
+        self._screen.set_scenes([self._scene])
+        self.setup_info_bar(self._screen.width-2*self._padding, self._header_bar_height, self._padding, self._padding)
+        self.setup_plot()
+        self._plot_count = 0
+        self.initialize_plots()
+
+        for e in readd:
+            self.add_effect(e)
+        self.update_info_message("Ros2Plot RE-Initialized!")
+        self._screen.refresh()
+
+    def add_base_effects(self):
+        self.add_effect("header_label")
+        self.add_effect("x_axis")
+        self.add_effect("y_axis")
+        # self.add_effect("tooltip")
+
 
     def setup_info_bar(self, width, height, x, y):
         self._effects["header_label"] = TextLabel(self._screen, width, height, x, y)
@@ -67,6 +98,29 @@ class Ros2Plot():
         self._effects["selector"] = Selector(self._screen, self._screen.width//2, self._screen.height//2, self._screen.width//4, self._draw_offsets.y)
         self._effects["inspector"] = GraphInspector(self._screen, self._graph_config, self._plot_data, self._plot_visibility, offsets=self._draw_offsets)
         self._effects["zoom_selector"] = GraphZoomSelector(self._screen, self._graph_config, self._draw_offsets)
+
+    
+    def initialize_plots(self, topic_filter: str = None, auto_add_display:bool=True):
+        for i in range(len(self._plot_data.field_keys)):
+            field = self._plot_data.field_keys[i]
+            if topic_filter != None:
+                if topic_filter not in field:
+                    continue
+
+            if field not in self._effects:
+                topic_name = field.split("/")[0]
+                data = self._plot_data.field_data[i]
+                self.initialize_effect(field, Plot(self._screen, self._graph_config, data, self._plot_data.timestamps[topic_name], offsets=self._draw_offsets))
+                c = COLOURS[self._plot_count%NUM_COLOURS]
+                self._effects[field].set_configs(True, True, c)
+                if field not in self._plot_visibility:
+                    self._plot_visibility[field] = {PLOT_VISIBILITY_KEY:True if auto_add_display else False, PLOT_COLOUR_KEY:c}
+                self._plot_count += 1
+
+                #just add it to the scene for now
+                if auto_add_display:
+                    self.add_effect(field)
+
     
     def update_draw_offsets(self, x, y):
         self._draw_offsets.x = x # 6 is standard padding to allow for y value axis labels
@@ -155,25 +209,6 @@ class Ros2Plot():
         self.update_info_message(self._multi_subscriber.get_info_msg())
         self.initialize_plots(topic_filter=ls_split[0])
     
-    def initialize_plots(self, topic_filter: str = None):
-        for i in range(len(self._plot_data.field_keys)):
-            field = self._plot_data.field_keys[i]
-            if topic_filter != None:
-                if topic_filter not in field:
-                    continue
-
-            if field not in self._effects:
-                topic_name = field.split("/")[0]
-                data = self._plot_data.field_data[i]
-                self.initialize_effect(field, Plot(self._screen, self._graph_config, data, self._plot_data.timestamps[topic_name], offsets=self._draw_offsets))
-                c = COLOURS[self._plot_count%NUM_COLOURS]
-                self._effects[field].set_configs(True, True, c)
-                self._plot_visibility[field] = {PLOT_VISIBILITY_KEY:True, PLOT_COLOUR_KEY:c}
-                self._plot_count += 1
-
-                #just add it to the scene for now
-                self.add_effect(field)
-
 
     def show_legend(self):
         self._effects["legend"].set_plots(self._plot_visibility)
@@ -257,17 +292,7 @@ class Ros2Plot():
 
 
     def run(self, shutdown):
-        self._screen.set_scenes([self._scene])
-        self.add_effect("header_label")
-        self.add_effect("x_axis")
-        self.add_effect("y_axis")
-        # self.add_effect("tooltip")
-        # self.update_tooltip(self.tooltip())
-        self.update_info_message("Ros2Plot Initialized!")
-        count = 0
         while not shutdown:
-            # self.update_info_message(f"{count}")
-            count +=1
             try:
                 if not self._graph_config.pause:
                     self.update_graph_config(self._plot_data.field_data)
@@ -286,9 +311,12 @@ class Ros2Plot():
                 self._handle_event(event)
 
             except StopApplication:
+                shutdown = True
                 break
             except ResizeScreenError:
                 pass
+            if self._screen.has_resized():
+                break
             time.sleep(0.033)
 
 def ros_run(node, shutdown):
@@ -330,13 +358,20 @@ def main():
     
     shutdown = False
     anysub = MultiSubscriber()
-    with ManagedScreen() as screen:
-        display = Ros2Plot(screen, 3, 2, anysub)
+    display = None
+    t = threading.Thread(target=ros_run, args=(anysub,shutdown), daemon=True)
 
-        t = threading.Thread(target=ros_run, args=(anysub,shutdown), daemon=True)
-        t.start()
-        display.run(shutdown)
-        t.join()
+    t.start()
+    while not shutdown:
+        with ManagedScreen() as screen:
+            if display == None:
+                display = Ros2Plot(screen, 3, 2, anysub)
+            else:
+                display.set_screen(screen)
+
+            display.run(shutdown)
+
+    t.join()
 
 if __name__ == '__main__':
     main()
