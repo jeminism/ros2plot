@@ -142,21 +142,35 @@ class GraphZoomSelector(GraphEffect):
         cand_x = point.x + dx
         cand_y = point.y + dy
         if cand_x < self._cfg.x_min_value:
-            point.x = self._cfg.x_min_value
+            self._cfg.x_min_value = cand_x
+            # point.x = self._cfg.x_min_value
         elif cand_x > self._cfg.x_max_value:
-            point.x = self._cfg.x_max_value
-        else:
-            point.x = cand_x
+            self._cfg.x_max_value = cand_x
+            # point.x = self._cfg.x_max_value
+        # else:
+        
+        point.x = cand_x
             
         if cand_y < self._cfg.y_min_value:
-            point.y = self._cfg.y_min_value
+            self._cfg.y_min_value = cand_y
+            # point.y = self._cfg.y_min_value
         elif cand_y > self._cfg.y_max_value:
-            point.y = self._cfg.y_max_value
-        else:
-            point.y = cand_y
+            self._cfg.y_max_value = cand_y
+            # point.y = self._cfg.y_max_value
+        # else:
+            # point.y = cand_y
+        point.y = cand_y
+    
+    def resize_plot(self):
+        self._cfg.y_min_value, self._cfg.y_max_value = min_max([self.pt_1.y, self.pt_2.y])
+        self._cfg.x_min_value, self._cfg.x_max_value = min_max([self.pt_1.x, self.pt_2.x])
+        
 
     def process_event(self, event):
         if isinstance(event, KeyboardEvent):
+            if event.key_code == KEY_CODES.ENTER: # ENTER
+                self.resize_plot()
+                return None
             if event.key_code == KEY_CODES.TAB: # TAB
                 self._focus = (self._focus+1)%3
                 return None
