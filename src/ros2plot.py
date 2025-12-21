@@ -48,15 +48,15 @@ class Ros2Plot():
         self.update_graph_config([], None)
 
         self.setup_info_bar(self._screen.width-2*padding, header_bar_height, padding, padding)
-        self.setup_tooltip(self._screen.width-2*padding, 3, padding, self._screen.height-3-padding)
+        # self.setup_tooltip(self._screen.width-2*padding, 3, padding, self._screen.height-3-padding)
         self.setup_plot()
 
     def setup_info_bar(self, width, height, x, y):
         self._effects["header_label"] = TextLabel(self._screen, width, height, x, y)
         self._effects["header_input"] = TextInput(self._screen, width, height, x, y)
     
-    def setup_tooltip(self, width, height, x, y):
-        self._effects["tooltip"] = TextLabel(self._screen, width, height, x, y)
+    # def setup_tooltip(self, width, height, x, y):
+    #     self._effects["tooltip"] = TextLabel(self._screen, width, height, x, y)
 
     def setup_plot(self):
         self._effects["y_axis"] = YAxis(self._screen, self._graph_config, self._draw_offsets)
@@ -74,7 +74,7 @@ class Ros2Plot():
 
     def update_graph_config(self, y_data: list[list], x_values: list=None):
         self._graph_config.width = self._screen.width-self._draw_offsets.x-self._padding-6 # 6 is the size limit of value labels exetending past the max width of the graph
-        self._graph_config.height = self._screen.height-self._draw_offsets.y-self._padding-4 #3+1 for tooltip footer
+        self._graph_config.height = self._screen.height-self._draw_offsets.y-self._padding #-4 #3+1 for tooltip footer
         
         if len(y_data) > 0 and len(y_data[0]) > 0:
             self._graph_config.y_min_value, self._graph_config.y_max_value = multi_min_max(y_data)
@@ -138,8 +138,8 @@ class Ros2Plot():
     def update_info_message(self, msg):
         self._effects["header_label"].set_value(msg)
     
-    def update_tooltip(self, msg):
-        self._effects["tooltip"].set_value(msg)
+    # def update_tooltip(self, msg):
+    #     self._effects["tooltip"].set_value(msg)
 
     def handle_text_input(self, input_val: str):
         ls_split = input_val.split(" ")
@@ -185,12 +185,12 @@ class Ros2Plot():
         
     def show_inspector(self):
         self._effects["inspector"].set_x_value()
-        self.update_tooltip(self._effects["inspector"].tooltip())
+        # self.update_tooltip(self._effects["inspector"].tooltip())
         self.add_effect("inspector")
 
     def show_zoom(self):
         self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
-        self.update_tooltip(self._effects["zoom_selector"].tooltip())
+        # self.update_tooltip(self._effects["zoom_selector"].tooltip())
         self._effects["zoom_selector"].reset()
         self.add_effect("zoom_selector")
 
@@ -237,7 +237,7 @@ class Ros2Plot():
                     if self._effects["inspector"] in self._scene.effects:
                         self._effects["inspector"].e_clear()
                         self.remove_effect("inspector")
-                        self.update_tooltip(self.tooltip())
+                        # self.update_tooltip(self.tooltip())
                     else:
                         self._graph_config.pause = True
                         self.show_inspector()
@@ -245,7 +245,7 @@ class Ros2Plot():
                     if self._effects["zoom_selector"] in self._scene.effects:
                         self._effects["zoom_selector"].e_clear()
                         self.remove_effect("zoom_selector")
-                        self.update_tooltip(self.tooltip())
+                        # self.update_tooltip(self.tooltip())
                     else:
                         self._graph_config.pause = True
                         self.show_zoom()
@@ -259,10 +259,10 @@ class Ros2Plot():
     def run(self, shutdown):
         self._screen.set_scenes([self._scene])
         self.add_effect("header_label")
-        self.add_effect("tooltip")
         self.add_effect("x_axis")
         self.add_effect("y_axis")
-        self.update_tooltip(self.tooltip())
+        # self.add_effect("tooltip")
+        # self.update_tooltip(self.tooltip())
         self.update_info_message("Ros2Plot Initialized!")
         count = 0
         while not shutdown:
