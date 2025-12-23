@@ -7,110 +7,317 @@ from rosidl_runtime_py.utilities import get_message
 
 from asciimatics.screen import Screen, ManagedScreen
 from asciimatics.scene import Scene
-from asciimatics.exceptions import ResizeScreenError
+from asciimatics.event import KeyboardEvent, MouseEvent
+from asciimatics.exceptions import ResizeScreenError, StopApplication
+from asciimatics.widgets.popupdialog import PopUpDialog
 import sys
 
-from effects.graph import GraphXY, GraphData
+# from effects.graph import GraphXY, GraphData
+from effects.effect_base import DrawOffsets
+from effects.graph_components import XAxis, YAxis, Plot, GraphConfigs, GraphInspector, GraphZoomSelector
 from effects.legend import GraphLegend
+from effects.frames import TextInput, TextLabel, PLOT_COLOUR_KEY, PLOT_VISIBILITY_KEY, Legend, Selector
 
 from utils.colour_palette import COLOURS, NUM_COLOURS
-from utils.graph_math import min_max
+from utils.graph_math import min_max, multi_min_max, get_mapped_value
 
 import threading
 import time
 
-NUMERIC_TYPES = (int, float, bool)
-IGNORE_FIELDS = ["/header"] #ignore first, integrate with timestamp later
+from anysub import MultiSubscriber, TopicData, CALLBACK_TIMESTAMP_KEY
 
-class TopicIntrospector:
-    def __init__(self, whitelist=None):
-        self._keys = []
-        self._data = []
-        self._whitelist = whitelist
+class Ros2Plot():
+    def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber):
+        self._scene = Scene([], duration=-1)
+        self._screen = screen
+        self._screen.set_scenes([self._scene])
+        self._padding = padding
+        self._header_bar_height = header_bar_height
+        self._effects = {}
+        self._graph_config = GraphConfigs()
+        self._draw_offsets = DrawOffsets()
 
-    def introspect(self, msg, path, no_data=False):
-        try:
-            fft = msg.get_fields_and_field_types() #use this to implicitly determine if msg is a ROS msg instead of a field.
-            for field in fft:
-                child_path = path + "/" + field
-                # print(child_path)
-                if any((x+"/" in child_path or x == child_path) for x in IGNORE_FIELDS):
-                    # print(f"ignore {child_path}")
-                    continue
-                if self._whitelist != None:
-                    if any((n+"/" in child_path or child_path+"/" in n or n == child_path) for n in self._whitelist):
-                        self.introspect(getattr(msg, field), child_path, no_data)
-                else:
-                    self.introspect(getattr(msg, field), child_path, no_data)
-        except AttributeError:
-            # NOT A ROS MSG 
-            # is terminal branch
-            if isinstance(msg, NUMERIC_TYPES):
-                try:
-                    index = self._keys.index(path)
-                    if not no_data:
-                        self._data[index].append(msg)
-                except ValueError:
-                    self._keys.append(path)
-                    if not no_data:
-                        self._data.append([msg])
-                    else:
-                        self._data.append([])
+        self._multi_subscriber = multi_subscriber
+        self._start_time = self._multi_subscriber.get_time() #sync with ros time
+        self._x_key = None
+
+        self._plot_data = self._multi_subscriber.get_data()
+        self._plot_visibility = {}
+        self._plot_count = 0
+
+        self.update_draw_offsets(padding + 6, padding + header_bar_height+1)
+        self.update_graph_config([], None)
+
+        self.setup_info_bar(self._screen.width-2*padding, header_bar_height, padding, padding)
+        # self.setup_tooltip(self._screen.width-2*padding, 3, padding, self._screen.height-3-padding)
+        self.setup_plot()
         
+        self.add_base_effects()
+        # self.update_tooltip(self.tooltip())
+        self.update_info_message("Ros2Plot Initialized!")
     
-    def get_data(self) -> (list, list):
-        return self._keys, self._data
+    def set_screen(self, screen):
+        readd = []
+        for name in self._effects:
+            if self._effects[name] in self._scene.effects:
+                readd.append(name)
+
+        self._screen = screen
+        self._scene = Scene([], duration=-1)
+        self._screen.set_scenes([self._scene])
+        self.setup_info_bar(self._screen.width-2*self._padding, self._header_bar_height, self._padding, self._padding)
+        self.setup_plot()
+        self._plot_count = 0
+        self.initialize_plots()
+
+        for e in readd:
+            self.add_effect(e)
+        self.update_info_message("Ros2Plot RE-Initialized!")
+        self._screen.refresh()
+
+    def add_base_effects(self):
+        self.add_effect("header_label")
+        self.add_effect("x_axis")
+        self.add_effect("y_axis")
+        # self.add_effect("tooltip")
 
 
-
-class AnySubscriber(Node):
-    def __init__(self, topic_name, topic_type, whitelist = None, x_key=None):
-        super().__init__("any_sub")
-        self._introspector = TopicIntrospector(whitelist)
-        self._introspector.introspect(topic_type(), "", no_data=True) #just initialize the keys first
-        self._x_key = x_key
-        self._x_values = [] if x_key == None else None
-        self._y_values = []
-        self._subscription = self.create_subscription(
-                                topic_type,
-                                topic_name,
-                                self.listener_callback,
-                                10)
-        self._first_time = None
-        self._new = False
-
-    def listener_callback(self, msg):
-        self._new = True
-        if self._first_time == None:
-            self._first_time = self.get_clock().now().nanoseconds
-        # self._graph_data.x_values.append(self.get_clock().now().nanoseconds - self._first_time)
-        if self._x_key == None:
-            self._x_values.append(self.get_clock().now().nanoseconds - self._first_time)
-        self._introspector.introspect(msg, "")
+    def setup_info_bar(self, width, height, x, y):
+        self._effects["header_label"] = TextLabel(self._screen, width, height, x, y)
+        self._effects["header_input"] = TextInput(self._screen, width, height, x, y)
     
+    # def setup_tooltip(self, width, height, x, y):
+    #     self._effects["tooltip"] = TextLabel(self._screen, width, height, x, y)
+
+    def setup_plot(self):
+        self._effects["y_axis"] = YAxis(self._screen, self._graph_config, self._draw_offsets)
+        self._effects["x_axis"] = XAxis(self._screen, self._graph_config, self._draw_offsets)
+        w = min(self._screen.width // 2, 20)
+        h = min(self._screen.height // 2, 10)
+        self._effects["legend"] = Legend(self._screen, w, h, self._screen.width-w-1, self._draw_offsets.y)
+        self._effects["selector"] = Selector(self._screen, self._screen.width//2, self._screen.height//2, self._screen.width//4, self._draw_offsets.y)
+        self._effects["inspector"] = GraphInspector(self._screen, self._graph_config, self._plot_data, self._plot_visibility, offsets=self._draw_offsets)
+        self._effects["zoom_selector"] = GraphZoomSelector(self._screen, self._graph_config, self._draw_offsets)
 
     
-    def get_graph_data(self) -> (list, list, list):
-        keys, values = self._introspector.get_data()
+    def initialize_plots(self, topic_filter: str = None, auto_add_display:bool=True):
+        for i in range(len(self._plot_data.field_keys)):
+            field = self._plot_data.field_keys[i]
+            if topic_filter != None:
+                if topic_filter not in field:
+                    continue
 
-        if self._x_key == None:
-            self._y_values = values
+            if field not in self._effects:
+                topic_name = field.split("/")[0]
+                data = self._plot_data.field_data[i]
+                self.initialize_effect(field, Plot(self._screen, self._graph_config, data, self._plot_data.timestamps[topic_name], offsets=self._draw_offsets))
+                c = COLOURS[self._plot_count%NUM_COLOURS]
+                self._effects[field].set_configs(True, True, c)
+                if field not in self._plot_visibility:
+                    self._plot_visibility[field] = {PLOT_VISIBILITY_KEY:True if auto_add_display else False, PLOT_COLOUR_KEY:c}
+                self._plot_count += 1
+
+                #just add it to the scene for now
+                if auto_add_display:
+                    self.add_effect(field)
+
+    
+    def update_draw_offsets(self, x, y):
+        self._draw_offsets.x = x # 6 is standard padding to allow for y value axis labels
+        self._draw_offsets.y = y
+
+    def update_graph_config(self, y_data: list[list], x_values: list=None):
+        self._graph_config.width = self._screen.width-self._draw_offsets.x-self._padding-6 # 6 is the size limit of value labels exetending past the max width of the graph
+        self._graph_config.height = self._screen.height-self._draw_offsets.y-self._padding #-4 #3+1 for tooltip footer
+        
+        if len(y_data) > 0 and len(y_data[0]) > 0:
+            self._graph_config.y_min_value, self._graph_config.y_max_value = multi_min_max(y_data)
+            if x_values == None:
+                first_time = next(iter(self._plot_data.timestamps.values()))
+                self._graph_config.x_min_value = first_time[0] if len(first_time) > 0 else self._start_time
+                self._graph_config.x_max_value = self._multi_subscriber.get_time()
+            else:
+                self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(x_values)
         else:
-            # print(f"'{self._x_key}'")
-            key_tmp = []
-            for i in range(len(keys)):
-                print(f"'{self._x_key}' vs '{keys[i]}'")
-                if keys[i] != self._x_key:
-                    self._y_values.append(values[i])
-                    key_tmp.append(keys[i])
-                else:
-                    self._x_values = values[i]
-            if self._x_values == None:
-                raise ValueError(f"X axis field could not be found! expected {self._x_key}")
-            keys = key_tmp
-        return keys, self._y_values, self._x_values
+            self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
+        
+        if self._graph_config.y_min_value == self._graph_config.y_max_value:
+            self._graph_config.y_min_value -= 1
+            self._graph_config.y_max_value += 1
+        if self._graph_config.x_min_value == self._graph_config.x_max_value:
+            self._graph_config.x_min_value -= 1
+            self._graph_config.x_max_value += 1
+            
+        self._graph_config.x = get_mapped_value(0 if self._graph_config.x_min_value < 0 else self._graph_config.x_min_value, self._graph_config.x_max_value, self._graph_config.width-1, self._graph_config.x_min_value, 0)
+        self._graph_config.y = get_mapped_value(0 if self._graph_config.y_min_value < 0 else self._graph_config.y_min_value, self._graph_config.y_max_value, 0, self._graph_config.y_min_value, self._graph_config.height-1)
+
+    def initialize_effect(self, name, effect=None):
+        if name in self._effects:
+            if self._effects[name] != None:
+                self.update_info_message(f"[NON-UNIQUE EFFECT NAME] Tried to initialize an effect '{name}' but this effect already exists")
+                return
+
+        self._effects[name] = effect
+    
+    def delete_effect(self, name):
+        if name in self._effects:
+            if self._effects[name] in self._scene.effects:
+                self.update_info_message(f"[INVALID DELETE] Unable to delete the effect '{name}' because it is present in the scene")
+
+            if self._effects[name] != None:
+                self._effects[name] = None
+
+    def add_effect(self, name):
+        if name not in self._effects or self._effects[name] == None:
+            self.update_info_message(f"[NON-EXISTENT EFFECT] Tried to add an effect '{name}' to the scene but this effect doesnt exist")
+            return
+        
+        if self._effects[name] in self._scene.effects:
+            #self.update_info_message(f"[EFFECT IN SCENE] Tried to add an effect '{name}' to the scene but this effect is already in the scene")
+            return
+        
+        self._scene.add_effect(self._effects[name])
+
+    def remove_effect(self, name):
+        if name not in self._effects:
+            self.update_info_message(f"[NON-EXISTENT EFFECT] Tried to remove an effect '{name}' from the scene but this effect doesnt exist")
+            return
+        
+        if self._effects[name] not in self._scene.effects:
+            #self.update_info_message(f"[EFFECT NOT IN SCENE] Tried to remove an effect '{name}' from the scene but this effect is not in the scene")
+            return
+           
+        self._scene.remove_effect(self._effects[name])
+
+    def update_info_message(self, msg):
+        self._effects["header_label"].set_value(msg)
+    
+    # def update_tooltip(self, msg):
+    #     self._effects["tooltip"].set_value(msg)
+
+    def handle_text_input(self, input_val: str):
+        ls_split = input_val.split(" ")
+        n = len(ls_split)
+        if n == 2:
+            # empty input do nothing
+            return
+        if n > 2:
+            self.update_info_message(f"Expected at most two input values of <topic> <topic-type (optional)>. Instead received '{input_val}'")
+            return
+
+        self._multi_subscriber.add_subscriber(ls_split[0], ls_split[1] if n>1 else None)
+        self.update_info_message(self._multi_subscriber.get_info_msg())
+        self.initialize_plots(topic_filter=ls_split[0])
     
 
+    def show_legend(self):
+        self._effects["legend"].set_plots(self._plot_visibility)
+        self.add_effect("legend")
+
+    def show_selector(self):
+        self._effects["selector"].set_plots(self._plot_visibility)
+        self.add_effect("selector")
+        
+    def show_inspector(self):
+        self._effects["inspector"].set_x_value()
+        # self.update_tooltip(self._effects["inspector"].tooltip())
+        self.add_effect("inspector")
+
+    def show_zoom(self):
+        self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
+        # self.update_tooltip(self._effects["zoom_selector"].tooltip())
+        self._effects["zoom_selector"].reset()
+        self.add_effect("zoom_selector")
+
+    def show_plots(self):
+        for p in self._plot_visibility:
+            if self._plot_visibility[p][PLOT_VISIBILITY_KEY]:
+                self.add_effect(p) 
+            else:
+                self._effects[p].e_clear()
+                self.remove_effect(p)
+
+    def _handle_event(self, event):
+        self._scene.process_event(event)
+        self._handle_display_controls(event)
+
+    def _handle_display_controls(self, event):
+        if isinstance(event, KeyboardEvent):
+            if self._effects["header_input"] in self._scene.effects:
+                if event.key_code in (10, 13):
+                    self._effects["header_input"].cleanup()
+                    self.remove_effect("header_input")
+                    self.handle_text_input(self._effects["header_input"].value())
+            elif self._effects["selector"] in self._scene.effects:
+                if event.key_code == ord('s'):
+                    self._effects["selector"].cleanup()
+                    self.remove_effect("selector")
+                    self.show_plots()
+            else:
+                if event.key_code == ord('p'):
+                    if self._effects["inspector"] not in self._scene.effects:
+                        self._graph_config.pause = not self._graph_config.pause
+                elif event.key_code == ord('l'):
+                    if self._effects["legend"] in self._scene.effects:
+                        self._effects["legend"].cleanup()
+                        self.remove_effect("legend")
+                    else:
+                        self.show_legend()
+                elif event.key_code == ord('s'):
+                    self.show_selector()
+                elif event.key_code == ord('/'):
+                    self._effects["header_input"].clear()
+                    self.add_effect("header_input")
+                elif event.key_code == ord('i'):
+                    if self._effects["inspector"] in self._scene.effects:
+                        self._effects["inspector"].e_clear()
+                        self.remove_effect("inspector")
+                        # self.update_tooltip(self.tooltip())
+                    else:
+                        self._graph_config.pause = True
+                        self.show_inspector()
+                elif event.key_code == ord('z'):
+                    if self._effects["zoom_selector"] in self._scene.effects:
+                        self._effects["zoom_selector"].e_clear()
+                        self.remove_effect("zoom_selector")
+                        # self.update_tooltip(self.tooltip())
+                    else:
+                        self._graph_config.pause = True
+                        self.show_zoom()
+                else:
+                    self.update_info_message(f"Unhandled Key press '{event.key_code}'")
+    
+    def tooltip(self):
+        return "p : Pause plot rendering | l : show legend | s : toggle plot visibility | i : open value inspector | z : open window resizer | / : open subscription configurator"        
+
+
+    def run(self, shutdown):
+        while not shutdown:
+            try:
+                if not self._graph_config.pause:
+                    self.update_graph_config(self._plot_data.field_data)
+                
+                if self._effects["zoom_selector"] in self._scene.effects:
+                    self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
+
+                if self._effects["inspector"] in self._scene.effects:
+                    self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
+
+                self._screen.draw_next_frame()
+                # self._handle_event()
+                event = self._screen.get_event()
+                if not (isinstance(event, KeyboardEvent) or isinstance(event, MouseEvent)):
+                    continue
+                self._handle_event(event)
+
+            except StopApplication:
+                shutdown = True
+                break
+            except ResizeScreenError:
+                pass
+            if self._screen.has_resized():
+                break
+            time.sleep(0.033)
 
 def ros_run(node, shutdown):
     # executor = MultiThreadedExecutor()
@@ -122,68 +329,12 @@ def ros_run(node, shutdown):
         shutdown = True
         return
 
-def screen_run(labels: list, y_data: list[list], x_values: list, shutdown):
-    print(labels, y_data, x_values)
-    with ManagedScreen() as screen:
-        graph_data = GraphData()
-        graph_data.x_values = x_values
-        graph_data.y_values = y_data
-        graph_data.paused = False
-
-        max_label_len = 0
-        for i in range(len(labels)):
-            n = len(labels[i])
-            if n > max_label_len:
-                max_label_len = n
-            graph_data.colours.append(COLOURS[i%NUM_COLOURS])
-        
-        legend = GraphLegend(screen, labels, graph_data.colours, max_width=screen.width//2, max_height=screen.height//4)
-        graph = GraphXY(screen, 4, 1, screen.width-8, screen.height-2, graph_data, plot_hd=True)
-        while not shutdown:
-            try:
-                screen.play([Scene([graph, legend], duration=graph.stop_frame)], stop_on_resize=True)
-            except ResizeScreenError:
-                pass
-
 def set_args(parser):
-    parser.add_argument('topic_name', help='Name of the topic to subscribe')
+    parser.add_argument('topic_name', nargs="?", help='Name of the topic to subscribe')
     parser.add_argument('topic_type', nargs="?", default=None, help='Type of topic to subscribe to. If missing, will internally attempt to automatically determine the topic type.')
     parser.add_argument('--fields', nargs='*', help='Specific fields to plot. Expects directory style path.')
     parser.add_argument('--x-field', nargs=1, help='Specific field to use as x axis. Expects directory style path. If missing, will default to system time')
     parser.add_argument('--ignore-fields', nargs='*', help='Y value fields to ignore, even if it falls under the specified fields. Expects directory style path.')
-
-def validate_topic(topic_name, topic_type=None):
-    found = False
-    node = Node("dummy")
-    time.sleep(0.5)
-    found_type = None
-    for name, types in node.get_topic_names_and_types():
-        print(name)
-        if topic_name != name and topic_name != name.lstrip('/'):
-            continue
-        found = True
-        if topic_type == None:
-            if len(types) > 1:
-                raise ValueError(f"Type of topic '{topic_name}' is ambiguous due to multiple different types on the same topic name'")
-            else:
-                found_type = get_message(types[0])
-        else:
-            try:
-                found_type = get_message(topic_type)
-            except:
-                raise ValueError(f"Input type {topic_type} does not exist!")
-        
-        break
-
-    if not found:
-        raise ValueError(f"Unable to find topic '{topic_name}'")
-    if found_type == None:
-        raise ValueError(f"Unable to determine type of Topic '{topic_name}'")
-
-    return topic_name, found_type
-
-        # print(f"  Topic: {topic_name}")
-        # print(f"    Types: {', '.join(message_types)}")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -194,25 +345,32 @@ def main():
 
     rclpy.init()
 
-    try:
-        topic_name, topic_type = validate_topic(args["topic_name"], args["topic_type"])
-    except ValueError as e:
-        print(e)
-        return
-    fields = ["/"+x for x in args["fields"]] if args["fields"]!=None else None
-    x_key = "/"+args["x_field"][0] if args["x_field"]!=None else None
-    if fields != None and x_key != None and x_key not in fields:
-        fields.append(x_key)
-    print(fields)
+    # try:
+    #     topic_name, topic_type = validate_topic(args["topic_name"], args["topic_type"])
+    # except ValueError as e:
+    #     print(e)
+    #     return
+    # fields = ["/"+x for x in args["fields"]] if args["fields"]!=None else None
+    # x_key = "/"+args["x_field"][0] if args["x_field"]!=None else None
+    # if fields != None and x_key != None and x_key not in fields:
+    #     fields.append(x_key)
+    # print(fields)
     
     shutdown = False
-    anysub = AnySubscriber(topic_name, topic_type, fields, x_key=x_key)
-
-    labels, y_values, x_values = anysub.get_graph_data()
-
+    anysub = MultiSubscriber()
+    display = None
     t = threading.Thread(target=ros_run, args=(anysub,shutdown), daemon=True)
+
     t.start()
-    screen_run(labels, y_values, x_values, shutdown)
+    while not shutdown:
+        with ManagedScreen() as screen:
+            if display == None:
+                display = Ros2Plot(screen, 3, 2, anysub)
+            else:
+                display.set_screen(screen)
+
+            display.run(shutdown)
+
     t.join()
 
 if __name__ == '__main__':
