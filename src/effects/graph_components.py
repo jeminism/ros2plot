@@ -367,9 +367,9 @@ class Plot(GraphEffect):
 
     def set_data(self, y_data: list=None, x_data: list=None):
         if y_data != None:
-            self._y_data = None
+            self._y_data = y_data
         if x_data != None:
-            self._x_data = None
+            self._x_data = x_data
     
     def _draw(self, frame_no):
         if len(self._x_data) == 0:
@@ -379,7 +379,8 @@ class Plot(GraphEffect):
             raise TypeError("All elements must be numeric")
         
         if len(self._x_data) != len(self._y_data):
-            raise ValueError("X and Y axis data must be of same length")
+            return #just fail instead in the cas of mismatched x and y values
+            # raise ValueError("X and Y axis data must be of same length")
         
         if self._cfg.x_min_value == self._cfg.x_max_value:
             raise ValueError("X axis bound invalid! Min value == max value")
