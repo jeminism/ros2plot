@@ -96,7 +96,8 @@ class MultiSubscriber(Node):
             self._info_msg = f"Successfully added subscriber to topic '{tname}' of type '{ttype}'"
             return True
         except Exception as e:
-            self._info_msg = f"{type(e).__name__}: {e}"
+            self._info_msg = f"[Subscription Failure]: {e}"
+            return False
 
         self._info_msg = f"Unknown error when creating subscriber to topic '{topic_name}'"
         return False
@@ -161,6 +162,7 @@ class MultiSubscriber(Node):
             raise ValueError(f"Unable to determine type of Topic '{topic_name}'")
 
         return topic_name, found_type
+
 import time
 if __name__ == '__main__':
     rclpy.init()
