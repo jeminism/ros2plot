@@ -5,6 +5,8 @@ from asciimatics.widgets.frame import Frame
 from asciimatics.widgets.text import Text 
 from asciimatics.widgets.label import Label 
 from asciimatics.widgets.checkbox import CheckBox 
+from asciimatics.widgets.dropdownlist import DropdownList 
+from asciimatics.widgets.divider import Divider 
 from asciimatics.widgets.utilities import _split_text
 
 from asciimatics.event import KeyboardEvent, MouseEvent
@@ -165,13 +167,24 @@ class Legend(GenericFrame):
         self.fix()
 
 class Selector(GenericFrame):
-    def __init__(self, screen, width=None, height=None, x=0, y=0):
+    def __init__(self, screen, x_key, width=None, height=None, x=0, y=0):
         super().__init__(screen, width, height, x, y)
         self.set_theme("monochrome")
         self._layout = Layout([1])
         self.add_layout(self._layout)
+        # self._drop_down = None
+        self._drop_down = DropdownList([], label="X-Axis Data")
+        self._options = []
+        self._x_key = x_key
+    
+    def get_x_field_selection(self):
+        v = self._drop_down.value
+        for value, i in self._options:
+            if i == v:
+                return value if value != "Time" else None
+        return None
 
-    def set_plots(self, plot_visibility: dict):
+    def set_plots(self, plot_visibility: dict, current_x_key=None):
         if not isinstance(plot_visibility, dict):
             raise ValueError("Expected dictionary value when populating legend") 
 
@@ -181,6 +194,20 @@ class Selector(GenericFrame):
         if not all((PLOT_VISIBILITY_KEY in plot_visibility[key]) for key in plot_visibility):
             raise ValueError(f"Expected key '{PLOT_VISIBILITY_KEY}' in graph visibility dictionaries but it is missing")
         self._layout.clear_widgets()
+
+        self._options = [("Time", 1)]
+        i = 1
+        n = 2
+        for label in plot_visibility:
+            self._options.append((label, n))
+            if label == current_x_key and current_x_key != None:
+                i = n
+            n+=1
+        self._drop_down.options = self._options
+        # self._drop_down._line = i
+        self._drop_down.value = i
+        self._layout.add_widget(self._drop_down)
+        self._layout.add_widget(Divider())
 
         def toggle_visibility_gen(key):
             def toggle_visibility():
@@ -192,4 +219,3 @@ class Selector(GenericFrame):
             c._value = plot_visibility[i][PLOT_VISIBILITY_KEY]
             self._layout.add_widget(c)
         self.fix()
-        

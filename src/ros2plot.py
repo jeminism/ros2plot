@@ -95,7 +95,7 @@ class Ros2Plot():
         w = min(self._screen.width // 2, 20)
         h = min(self._screen.height // 2, 10)
         self._effects["legend"] = Legend(self._screen, w, h, self._screen.width-w-1, self._draw_offsets.y)
-        self._effects["selector"] = Selector(self._screen, self._screen.width//2, self._screen.height//2, self._screen.width//4, self._draw_offsets.y)
+        self._effects["selector"] = Selector(self._screen, self._x_key, self._screen.width//2, self._screen.height//2, self._screen.width//4, self._draw_offsets.y)
         self._effects["inspector"] = GraphInspector(self._screen, self._graph_config, self._plot_data, self._plot_visibility, offsets=self._draw_offsets)
         self._effects["zoom_selector"] = GraphZoomSelector(self._screen, self._graph_config, self._draw_offsets)
 
@@ -120,6 +120,23 @@ class Ros2Plot():
                 #just add it to the scene for now
                 if auto_add_display:
                     self.add_effect(field)
+
+    def update_plot_x_data(self, topic_filter: str = None):
+        index = -1
+        if self._x_key != None:
+            for i in range(len(self._plot_data.field_keys)):
+                if self._x_key == self._plot_data.field_keys[i]:
+                    index = i
+                    break
+
+        for i in range(len(self._plot_data.field_keys)):
+            field = self._plot_data.field_keys[i]
+            if topic_filter != None:
+                if topic_filter not in field:
+                    continue
+            
+            topic_name = field.split("/")[0]
+            self._effects[field].set_data(x_data=self._plot_data.field_data[index] if index != -1 else self._plot_data.timestamps[topic_name])
 
     
     def update_draw_offsets(self, x, y):
@@ -215,7 +232,7 @@ class Ros2Plot():
         self.add_effect("legend")
 
     def show_selector(self):
-        self._effects["selector"].set_plots(self._plot_visibility)
+        self._effects["selector"].set_plots(self._plot_visibility, self._x_key)
         self.add_effect("selector")
         
     def show_inspector(self):
@@ -253,6 +270,8 @@ class Ros2Plot():
                     self._effects["selector"].cleanup()
                     self.remove_effect("selector")
                     self.show_plots()
+                    self._x_key = self._effects["selector"].get_x_field_selection()
+                    self.update_plot_x_data()
             else:
                 if event.key_code == ord('p'):
                     if self._effects["inspector"] not in self._scene.effects:
@@ -290,12 +309,20 @@ class Ros2Plot():
     def tooltip(self):
         return "p : Pause plot rendering | l : show legend | s : toggle plot visibility | i : open value inspector | z : open window resizer | / : open subscription configurator"        
 
+    def get_key_data(self, key):
+        for i in range(len(self._plot_data.field_keys)):
+            if self._plot_data.field_keys[i] == key:
+                return self._plot_data.field_data[i]
+        
+        self.update_info_message(f"Unable to find field '{key}' for use as X Axis")
+        return None
 
     def run(self, shutdown):
         while not shutdown:
             try:
+                self.update_info_message(f"current x key {"None" if self._x_key == None else self._x_key}")
                 if not self._graph_config.pause:
-                    self.update_graph_config(self._plot_data.field_data)
+                    self.update_graph_config(self._plot_data.field_data, self.get_key_data(self._x_key) if self._x_key != None else None)
                 
                 if self._effects["zoom_selector"] in self._scene.effects:
                     self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
