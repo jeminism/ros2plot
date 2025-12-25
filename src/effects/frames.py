@@ -12,6 +12,8 @@ from asciimatics.widgets.utilities import _split_text
 from asciimatics.event import KeyboardEvent, MouseEvent
 from collections import deque
 
+from utils.graph_data import PlotData, TIMESTAMP_KEY
+
 class GenericFrame(Frame):
     def __init__(self, screen, width=None, height=None, x=0, y=0):
         if width == None:
@@ -137,33 +139,19 @@ class ColouredLabel(Label):
                                      attr,
                                      background)
 
-PLOT_VISIBILITY_KEY = "visible"
-PLOT_COLOUR_KEY = "colour"
 class Legend(GenericFrame):
     def __init__(self, screen, width=None, height=None, x=0, y=0):
         super().__init__(screen, width, height, x, y)
         self.set_theme("monochrome")
         self._layout = Layout([1])
         self.add_layout(self._layout)
-        self.set_plots({"Missing List initialization!": {PLOT_VISIBILITY_KEY:True}})
+        self.set_plots({})
     
-    def set_plots(self, plot_visibility: dict):
-        # if graph_colours != None:
-        #     if len(graph_names)!=len(graph_colours):
-        #         raise ValueError("Length of graph colours must be same length as the list of graph names!")
-        if not isinstance(plot_visibility, dict):
-            raise ValueError("Expected dictionary value when populating legend") 
-
-        if not all((isinstance(key, str) and isinstance(plot_visibility[key], dict)) for key in plot_visibility):
-            raise ValueError("Expected dictionary of type: dict[str, dict]")
-            
-        if not all((PLOT_VISIBILITY_KEY in plot_visibility[key]) for key in plot_visibility):
-            raise ValueError(f"Expected key '{PLOT_VISIBILITY_KEY}' in graph visibility dictionaries but it is missing")
-
+    def set_plots(self, plot_data: dict[str, PlotData]):
         self._layout.clear_widgets()
-        for i in plot_visibility:
-            if plot_visibility[i][PLOT_VISIBILITY_KEY]:
-                self._layout.add_widget(ColouredLabel("• " + i, colour=(plot_visibility[i][PLOT_COLOUR_KEY] if PLOT_COLOUR_KEY in plot_visibility[i] else None)))
+        for field, plt in plot_data.items():
+            if plt.visible:
+                self._layout.add_widget(ColouredLabel("• " + field, colour=plt.colour))
         self.fix()
 
 class Selector(GenericFrame):
@@ -184,23 +172,15 @@ class Selector(GenericFrame):
                 return value if value != "Time" else None
         return None
 
-    def set_plots(self, plot_visibility: dict, current_x_key=None):
-        if not isinstance(plot_visibility, dict):
-            raise ValueError("Expected dictionary value when populating legend") 
-
-        if not all((isinstance(key, str) and isinstance(plot_visibility[key], dict)) for key in plot_visibility):
-            raise ValueError("Expected dictionary of type: dict[str, dict]")
-            
-        if not all((PLOT_VISIBILITY_KEY in plot_visibility[key]) for key in plot_visibility):
-            raise ValueError(f"Expected key '{PLOT_VISIBILITY_KEY}' in graph visibility dictionaries but it is missing")
+    def set_plots(self, plot_data: dict[str, PlotData], current_x_key=None):
         self._layout.clear_widgets()
 
         self._options = [("Time", 1)]
         i = 1
         n = 2
-        for label in plot_visibility:
-            self._options.append((label, n))
-            if label == current_x_key and current_x_key != None:
+        for field in plot_data:
+            self._options.append((field, n))
+            if field == current_x_key and current_x_key != None:
                 i = n
             n+=1
         self._drop_down.options = self._options
@@ -211,11 +191,13 @@ class Selector(GenericFrame):
 
         def toggle_visibility_gen(key):
             def toggle_visibility():
-                plot_visibility[key][PLOT_VISIBILITY_KEY] = not plot_visibility[key][PLOT_VISIBILITY_KEY]
+                plot_data[key].visible = not plot_data[key].visible
             return toggle_visibility
 
-        for i in plot_visibility:
-            c = CheckBox(i, on_change=toggle_visibility_gen(i))
-            c._value = plot_visibility[i][PLOT_VISIBILITY_KEY]
+        for field in plot_data:
+            if TIMESTAMP_KEY in field:
+                continue
+            c = CheckBox(field, on_change=toggle_visibility_gen(field))
+            c._value = plot_data[field].visible
             self._layout.add_widget(c)
         self.fix()

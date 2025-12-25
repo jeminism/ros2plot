@@ -9,37 +9,16 @@ from asciimatics.screen import Screen
 from effects.effect_base import EffectBase, DrawOffsets
 from asciimatics.event import KeyboardEvent, MouseEvent
 
-from effects.frames import PLOT_COLOUR_KEY, PLOT_VISIBILITY_KEY
-
 import utils.key_codes as KEY_CODES
+from utils.graph_data import GraphConfigs, PlotData
 
 # from typing import TypedDict, List
 import attrs
 import math
 
-@attrs.define
-class GraphData:
-    x_values: list = attrs.field(default=[])
-    y_values: list[list] = attrs.field(default=[])
-    colours: list = attrs.field(default=[])
-    paused: bool = attrs.field(default=False)
-
 MAX_GRAPH_PTS = 1000
 
-
-@attrs.define
-class GraphConfigs:
-    x: int = attrs.field(default=0) #origin position, where axis intersect
-    y: int = attrs.field(default=0)
-    width: int = attrs.field(default=0) #width of the plot area, in pixels
-    height: int = attrs.field(default=0) #height of the plot area, in pixels
-    y_min_value: int = attrs.field(default=0) # y value corresponding to pixel (x, height-1)
-    y_max_value: int = attrs.field(default=0) # y value corresponding to pixel (x, 0)
-    x_min_value: int = attrs.field(default=0) # x value corresponding to pixel (0, y)
-    x_max_value: int = attrs.field(default=0) # x value corresponding to pixel (width-1, y)
-    pause: bool = attrs.field(default=False) # flag to dictate if the effect should pause drawing or no
-
-
+#helper class
 class GraphPoint():
     def __init__(self, x, y):
         self._x = x
@@ -202,11 +181,11 @@ class GraphZoomSelector(GraphEffect):
         return event
 
 class GraphInspector(GraphEffect):
-    def __init__(self, screen: Screen, cfg: GraphConfigs, plot_data, plot_visibility, x_key=None, initial_x_value=None, offsets: DrawOffsets=DrawOffsets()):
+    def __init__(self, screen: Screen, cfg: GraphConfigs, plot_data: dict[str, PlotData], initial_x_value=None, offsets: DrawOffsets=DrawOffsets()):
         super().__init__(screen, cfg, offsets)
         self._plot_data = plot_data
-        self._plot_visibility = plot_visibility
-        self._x_key = x_key
+        # self._plot_visibility = plot_visibility
+        # self._x_key = x_key
         self._x_value = initial_x_value
 
     def _draw(self, frame_no):
@@ -216,38 +195,25 @@ class GraphInspector(GraphEffect):
         x = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
         for y in range(self._cfg.height):
             self.e_print("│", x, y)
-        
-        x_index = None
-        x_data = None
-        if self._x_key != None:
-            for i in range(len(self._plot_data.field_keys)):
-                if self._plot_data.field_keys[i] == self._x_key:
-                    x_index = self.get_closest_index(self._x_value, self._plot_data.field_data[i])
-                    if x_index != -1:
-                        x_data = get_mapped_value(self._plot_data.field_keys[i][x_index], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
-                    break
-            if x_index == None:
-                raise ValueError(f"provided x key '{self._x_key}', but this key is non existent in the plot data")
 
-        for i in range(len(self._plot_data.field_keys)):
-            field_name = self._plot_data.field_keys[i]
-            if len(self._plot_data.field_data[i]) == 0:
-                return
-
-            if not self._plot_visibility[field_name][PLOT_VISIBILITY_KEY]:
+        for field_name, plot in self._plot_data.items():
+            if len(plot.data) == 0:
+                #return # why return?
                 continue
 
-            if self._x_key == None:
-                topic_name = field_name.split("/")[0]
-                x_index = self.get_closest_index(self._x_value, self._plot_data.timestamps[topic_name])
-                if x_index != -1:
-                    x_data = get_mapped_value(self._plot_data.timestamps[topic_name][x_index], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
-            
-            if x_index == -1:
+            if not plot.visible:
                 continue
-            y_val = self._plot_data.field_data[i][x_index]
+
+            x_key = plot.x_key
+
+            if x_key not in self._plot_data:
+                continue
+
+            index = self.get_closest_index(self._x_value, self._plot_data[x_key].data)
+            x_data = get_mapped_value(self._plot_data[x_key].data[index], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+            y_val = plot.data[index]
             y_data = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
-            self.e_print(f"⮾ {y_val}", x_data, y_data, self._plot_visibility[field_name][PLOT_COLOUR_KEY])
+            self.e_print(f"⮾ {y_val}", x_data, y_data, plot.colour)
     
     def set_x_value(self, x_val=None):
         self._x_value = x_val if x_val != None else (self._cfg.x_max_value + self._cfg.x_min_value) / 2
@@ -255,8 +221,8 @@ class GraphInspector(GraphEffect):
     def get_x_value(self):
         return self._x_value
 
-    def set_x_key(self, x_key):
-        self._x_key = x_key
+    # def set_x_key(self, x_key):
+    #     self._x_key = x_key
     
     def tooltip(self):
         return f"← : Move Left | → : Move Right | CTRL+move : Move slower"
@@ -337,62 +303,54 @@ class XAxis(GraphEffect):
         self.e_print(f"{self._cfg.x_min_value:3.2f}", 0, self._cfg.y+1)
         self.e_print(f"{self._cfg.x_max_value:3.2f}", self._cfg.width-1, self._cfg.y+1)
 
-# represents the plot of a single data set
-# @attrs.define
-# class PlotData:
-#     # x_data: list = attrs.field(default=[])
-#     # y_data: list = attrs.field(default=[])
-#     # colour: int = attrs.field(default=7)
-#     interpolate: bool = attrs.field(default=True)
-#     high_def: bool = attrs.field(default=True)
-
 class Plot(GraphEffect):
-    def __init__(self, screen: Screen, cfg: GraphConfigs, y_data: list, x_data: list, offsets: DrawOffsets=DrawOffsets()):
+    def __init__(self, screen: Screen, cfg: GraphConfigs, db: dict[str, PlotData], y_key:str=None, offsets: DrawOffsets=DrawOffsets()):
         super().__init__(screen, cfg, offsets)
-        self._cfg = cfg
-        self._y_data = y_data
-        self._x_data = x_data
-        self._interpolate = True
-        self._high_def = True
-        self._colour = 7
-        
+        self._db = db #dictionary db of field vs field data
+        self._plt = None
+        self._y_key = None
+        self.set_data_key(y_key)
 
-    def set_configs(self, interpolate: bool=None, high_def: bool=None, colour:int=None):
-        if interpolate != None:
-            self._interpolate = interpolate
-        if high_def != None:
-            self._high_def = high_def
-        if colour != None:
-            self._colour = colour
-
-    def set_data(self, y_data: list=None, x_data: list=None):
-        if y_data != None:
-            self._y_data = y_data
-        if x_data != None:
-            self._x_data = x_data
+    def set_data_key(self, y_data: str):
+        if y_data not in self._db:
+            raise ValueError(f"Unable to plot graph with Y-Axis data {y_data} but this key does not exist in the DB!")
+        self._plt = self._db[y_data]
+    
+    def lookup_data(self, key):
+        return self._db[key].data
     
     def _draw(self, frame_no):
-        if len(self._x_data) == 0:
+        if self._plt == None:
+            # not setup yet, just quietly return as it may be due to application logic
+            return
+
+        if self._plt.x_key not in self._db:
+            raise ValueError(f"Unable to plot graph with X-Axis data {self._plt.x_key} but this key does not exist in the DB!")
+
+        y_data = self._plt.data
+        x_data = self.lookup_data(self._plt.x_key)
+
+        if len(x_data) == 0:
             return
             
-        if not all(isinstance(x, (int, float)) for x in self._x_data) and not all(isinstance(y, (int, float)) for y in self._y_data):
+        if not all(isinstance(x, (int, float)) for x in x_data) and not all(isinstance(y, (int, float)) for y in y_data):
             raise TypeError("All elements must be numeric")
         
-        if len(self._x_data) != len(self._y_data):
-            return #just fail instead in the cas of mismatched x and y values
-            # raise ValueError("X and Y axis data must be of same length")
+        if len(x_data) != len(y_data):
+            # return #just fail instead in the cas of mismatched x and y values
+            raise ValueError(f"X and Y axis data must be of same length. got X length: {len(x_data)}, Y length: {len(y_data)}")
         
         if self._cfg.x_min_value == self._cfg.x_max_value:
             raise ValueError("X axis bound invalid! Min value == max value")
         if self._cfg.y_min_value == self._cfg.y_max_value:
             raise ValueError("Y axis bound invalid! Min value == max value")
 
-        self.do_plot()
+        self.do_plot(y_data, x_data)
 
 
-    def do_plot(self):
-        n_vals = len(self._x_data)
-        use_braille = self._high_def
+    def do_plot(self, y_data, x_data):
+        n_vals = len(x_data)
+        use_braille = self._plt.high_def
 
         width = self._cfg.width*2 if use_braille else self._cfg.width
         height = self._cfg.height*4 if use_braille else self._cfg.height
@@ -402,17 +360,14 @@ class Plot(GraphEffect):
         prior_y = -1
         last = -1
         for i in range(n_vals):
-            y_index = get_mapped_value(self._y_data[i], self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
-            x_index = get_mapped_value(self._x_data[i], self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
-            if x_index > width-1 or x_index < 0:
+            y_index = get_mapped_value(y_data[i], self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
+            x_index = get_mapped_value(x_data[i], self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
+            if x_index > width-1 or x_index < 0 or y_index > height-1 or y_index < 0:
                 continue
-            if y_index > height-1 or y_index < 0:
-                continue
-            if (i > 0 and self._interpolate):
+
+            if self._plt.interpolate:
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
-                    if pt[0] > width-1 or pt[0] < 0:
-                        continue
-                    if pt[1] > height-1 or pt[1] < 0:
+                    if pt[0] > width-1 or pt[0] < 0 or pt[1] > height-1 or pt[1] < 0:
                         continue
                     grid.set_value(grid.to_index(pt[0], pt[1]), True)
             else:
@@ -440,13 +395,13 @@ class Plot(GraphEffect):
                             braille_cells.append(dot_num)
 
                     if len(braille_cells) > 0:
-                        self.e_print(braille_char(braille_cells), i, j, self._colour)
+                        self.e_print(braille_char(braille_cells), i, j, self._plt.colour)
                 else:
                     if grid.at(grid.to_index(i, j)):
-                        self.e_print("*", i, j, self._colour)
+                        self.e_print("*", i, j, self._plt.colour)
 
         # print last value
         if last != -1:
-            x_latest_location = min(get_mapped_value(self._x_data[last], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0), self._cfg.width)
-            y_latest_location = get_mapped_value(self._y_data[last], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
-            self.e_print(f"{self._y_data[last]:3.2f}", x_latest_location+1, y_latest_location, self._colour)
+            x_latest_location = min(get_mapped_value(x_data[last], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0), self._cfg.width)
+            y_latest_location = get_mapped_value(y_data[last], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+            self.e_print(f"{y_data[last]:3.2f}", x_latest_location+1, y_latest_location, self._plt.colour)

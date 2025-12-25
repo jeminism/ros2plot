@@ -9,7 +9,7 @@ def get_mapped_value(value, max_value, max_mapped, min_value, min_mapped):
 
 def min_max(values: list):
     min = math.inf
-    max = 0
+    max = -math.inf
     for val in values:
         if val < min:
             min = val
@@ -19,7 +19,7 @@ def min_max(values: list):
 
 def multi_min_max(data: list[list]):
     min = math.inf
-    max = 0
+    max = -math.inf
     try:
         for values in data:
             for val in values:

@@ -5,23 +5,14 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.node import Node
 from rosidl_runtime_py.utilities import get_message
 
-import attrs
 from typing import Callable, Dict, Any
 
 NUMERIC_TYPES = (int, float, bool)
 IGNORE_FIELDS = ["/header"] #ignore first, integrate with timestamp later
-CALLBACK_TIMESTAMP_KEY = "callback_timestamp"
 
-    
-@attrs.define
-class TopicData():
-    field_keys: list = attrs.field(default=[])
-    field_data: list = attrs.field(default=[])
-    timestamps: dict = attrs.field(default={})
-    # timestamp: float = attrs.field(default=0)
 
 class IntrospectiveSubscriber():
-    def __init__(self, node: Node, topic_name, topic_type, data_handler: Callable[[Dict[str, Any]], None]):
+    def __init__(self, node: Node, topic_name, topic_type, data_handler: Callable[[Node, Dict[str, Any]], None]):
         # self._introspector = TopicIntrospector(whitelist)
         # self._introspector.introspect(topic_type(), "", no_data=True) #just initialize the keys first
 
@@ -35,16 +26,14 @@ class IntrospectiveSubscriber():
                                         10)
         #initialize keys
         d = {}
-        d[CALLBACK_TIMESTAMP_KEY] = None
         self.introspect(topic_type(), "", d, no_data=True)                                
-        self._data_handler(d)
+        self._data_handler(self._node, d)
 
     def listener_callback(self, msg):
         # self._graph_data.x_values.append(self.get_clock().now().nanoseconds - self._first_time)
         data = {}
-        data[CALLBACK_TIMESTAMP_KEY] = self._node.get_time()
         self.introspect(msg, "", data)    
-        self._data_handler(data)
+        self._data_handler(self._node, data)
         
     def introspect(self, msg, path, result_dict, no_data: bool=False):
         try:
@@ -63,20 +52,9 @@ class IntrospectiveSubscriber():
 
 class MultiSubscriber(Node):
     def __init__(self):
-        super().__init__("any_sub")
+        super().__init__("multi_sub")
         self._subscribers = {}
-        self._data = TopicData()
         self._info_msg = ""
-
-    def get_data_field(self, key):
-        try:
-            index = self._data.field_keys.index(key)
-            return self._data.field_data[index]
-        except:
-            return None
-    
-    def get_data(self):
-        return self._data
 
     def get_time(self):
         return self.get_clock().now().nanoseconds
@@ -84,7 +62,7 @@ class MultiSubscriber(Node):
     def get_info_msg(self):
         return self._info_msg
 
-    def add_subscriber(self, topic_name, topic_type=None):
+    def add_subscriber(self, handler_fn, topic_name, topic_type=None):
         if topic_name in self._subscribers:
             if self._subscribers[topic_name] != None:
                 self._info_msg = f"There is already an existing subscriber for topic '{topic_name}'"
@@ -92,7 +70,7 @@ class MultiSubscriber(Node):
 
         try:
             tname, ttype = self.validate_topic(topic_name, topic_type)
-            self._subscribers[topic_name] = IntrospectiveSubscriber(self, tname, ttype, self.get_topic_data_handler(tname))
+            self._subscribers[topic_name] = IntrospectiveSubscriber(self, tname, ttype, handler_fn)
             self._info_msg = f"Successfully added subscriber to topic '{tname}' of type '{ttype}'"
             return True
         except Exception as e:
@@ -111,28 +89,6 @@ class MultiSubscriber(Node):
                 self._info_msg = f"The subscriber for topic '{topic_name}' is removed"
         else:
             self._info_msg = f"There is no existing subscriber for topic '{topic_name}'"
-
-
-    def get_topic_data_handler(self, topic_name):
-        def handler(data: dict):
-            for key, value in data.items():
-                if key == CALLBACK_TIMESTAMP_KEY:
-                    if topic_name in self._data.timestamps:
-                        if value != None:
-                            self._data.timestamps[topic_name].append(value)
-                    else:
-                        self._data.timestamps[topic_name] = [value] if value != None else []
-                    
-                    continue
-                full_key = topic_name + key
-                try:
-                    index = self._data.field_keys.index(full_key)
-                    if value != None:
-                        self._data.field_data[index].append(value)
-                except ValueError:
-                    self._data.field_keys.append(full_key)
-                    self._data.field_data.append([value] if value != None else [])
-        return handler
 
 
     def validate_topic(self, topic_name, topic_type=None):
@@ -164,11 +120,14 @@ class MultiSubscriber(Node):
         return topic_name, found_type
 
 import time
+def topic_print(d:dict):
+    print(f"{d}")
+
 if __name__ == '__main__':
     rclpy.init()
     main = MultiSubscriber()
     time.sleep(0.5)
-    main.add_subscriber("test", "std_msgs/Int8")
+    main.add_subscriber(topic_print, "test", "std_msgs/Int8")
     print(main.get_info_msg())
     print(main._data)
     rclpy.spin(main)

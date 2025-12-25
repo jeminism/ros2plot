@@ -1,10 +1,20 @@
 from asciimatics.screen import Screen
 
-COLOURS=[Screen.COLOUR_RED,
-         Screen.COLOUR_GREEN,
-         Screen.COLOUR_YELLOW,
-         Screen.COLOUR_BLUE,
-         Screen.COLOUR_MAGENTA,
-         Screen.COLOUR_CYAN]
+DEFAULT=Screen.COLOUR_DEFAULT
+BLACK=Screen.COLOUR_BLACK
+RED=Screen.COLOUR_RED
+GREEN=Screen.COLOUR_GREEN
+YELLOW=Screen.COLOUR_YELLOW
+BLUE=Screen.COLOUR_BLUE
+MAGENTA=Screen.COLOUR_MAGENTA
+CYAN=Screen.COLOUR_CYAN
+WHITE=Screen.COLOUR_WHITE
+
+COLOURS=[RED,
+         GREEN,
+         YELLOW,
+         BLUE,
+         MAGENTA,
+         CYAN]
          
 NUM_COLOURS = len(COLOURS)        
