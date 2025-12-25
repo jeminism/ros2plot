@@ -107,19 +107,28 @@ class Ros2Plot():
                 if topic_filter not in field:
                     continue
 
+            x_data = None
+            if self._x_key != None:
+                x_data = self.get_key_data(self._x_key)
+
             if field not in self._effects:
                 topic_name = field.split("/")[0]
                 data = self._plot_data.field_data[i]
-                self.initialize_effect(field, Plot(self._screen, self._graph_config, data, self._plot_data.timestamps[topic_name], offsets=self._draw_offsets))
+                self.initialize_effect(field, Plot(self._screen, self._graph_config, data, self._plot_data.timestamps[topic_name] if x_data == None else x_data, offsets=self._draw_offsets))
                 c = COLOURS[self._plot_count%NUM_COLOURS]
                 self._effects[field].set_configs(True, True, c)
                 if field not in self._plot_visibility:
-                    self._plot_visibility[field] = {PLOT_VISIBILITY_KEY:True if auto_add_display else False, PLOT_COLOUR_KEY:c}
+                    self._plot_visibility[field] = {PLOT_VISIBILITY_KEY: False, PLOT_COLOUR_KEY:c}
                 self._plot_count += 1
 
                 #just add it to the scene for now
                 if auto_add_display:
-                    self.add_effect(field)
+                    self.add_plot(field)
+    
+
+    def set_x_axis_key(self, x_key:str=None):
+        self._x_key = x_key
+        self.update_plot_x_data()
 
     def update_plot_x_data(self, topic_filter: str = None):
         index = -1
@@ -205,6 +214,15 @@ class Ros2Plot():
             return
            
         self._scene.remove_effect(self._effects[name])
+    
+    #specializations for plots
+    def add_plot(self, field_name):
+        self.add_effect(field_name)
+        self._plot_visibility[field_name][PLOT_VISIBILITY_KEY] = True
+
+    def remove_plot(self, field_name):
+        self.remove_effect(field_name)
+        self._plot_visibility[field_name][PLOT_VISIBILITY_KEY] = False
 
     def update_info_message(self, msg):
         self._effects["header_label"].set_value(msg)
@@ -221,10 +239,24 @@ class Ros2Plot():
         if n > 2:
             self.update_info_message(f"Expected at most two input values of <topic> <topic-type (optional)>. Instead received '{input_val}'")
             return
+        self.add_subscriber(ls_split[0], ls_split[1] if n>1 else None)
 
-        self._multi_subscriber.add_subscriber(ls_split[0], ls_split[1] if n>1 else None)
+    def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
+        topic = topic.lstrip("/")
+        self._multi_subscriber.add_subscriber(topic, topic_type)
         self.update_info_message(self._multi_subscriber.get_info_msg())
-        self.initialize_plots(topic_filter=ls_split[0])
+        self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
+        if field_filter != None:
+            fails = []
+            for field in field_filter:
+                field_name = topic+"/"+field.lstrip("/")
+                if field_name in self._effects:
+                    self.add_plot(field_name)
+                else:
+                    fails.append(field)
+            if len(fails) > 0:
+                self.update_info_message(f"Tried to add plot for fields '{fails}' but these are invalid fields in topic '{topic}'")
+
     
 
     def show_legend(self):
@@ -270,8 +302,7 @@ class Ros2Plot():
                     self._effects["selector"].cleanup()
                     self.remove_effect("selector")
                     self.show_plots()
-                    self._x_key = self._effects["selector"].get_x_field_selection()
-                    self.update_plot_x_data()
+                    self.set_x_axis_key(self._effects["selector"].get_x_field_selection())
             else:
                 if event.key_code == ord('p'):
                     if self._effects["inspector"] not in self._scene.effects:
@@ -316,13 +347,20 @@ class Ros2Plot():
         
         self.update_info_message(f"Unable to find field '{key}' for use as X Axis")
         return None
+    
+    def get_visible_data(self):
+        data = []
+        for i in range(len(self._plot_data.field_keys)):
+            if self._plot_visibility[self._plot_data.field_keys[i]][PLOT_VISIBILITY_KEY]:
+                data.append(self._plot_data.field_data[i])
+        return data
 
     def run(self, shutdown):
         while not shutdown:
             try:
-                self.update_info_message(f"current x key {"None" if self._x_key == None else self._x_key}")
+                # self.update_info_message(f"current x key {"None" if self._x_key == None else self._x_key}")
                 if not self._graph_config.pause:
-                    self.update_graph_config(self._plot_data.field_data, self.get_key_data(self._x_key) if self._x_key != None else None)
+                    self.update_graph_config(self.get_visible_data(), self.get_key_data(self._x_key) if self._x_key != None else None)
                 
                 if self._effects["zoom_selector"] in self._scene.effects:
                     self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
@@ -357,11 +395,10 @@ def ros_run(node, shutdown):
         return
 
 def set_args(parser):
-    parser.add_argument('topic_name', nargs="?", help='Name of the topic to subscribe')
+    parser.add_argument('topic_name', nargs="?", default=None, help='Name of the topic to subscribe')
     parser.add_argument('topic_type', nargs="?", default=None, help='Type of topic to subscribe to. If missing, will internally attempt to automatically determine the topic type.')
     parser.add_argument('--fields', nargs='*', help='Specific fields to plot. Expects directory style path.')
     parser.add_argument('--x-field', nargs=1, help='Specific field to use as x axis. Expects directory style path. If missing, will default to system time')
-    parser.add_argument('--ignore-fields', nargs='*', help='Y value fields to ignore, even if it falls under the specified fields. Expects directory style path.')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -372,19 +409,15 @@ def main():
 
     rclpy.init()
 
-    # try:
-    #     topic_name, topic_type = validate_topic(args["topic_name"], args["topic_type"])
-    # except ValueError as e:
-    #     print(e)
-    #     return
-    # fields = ["/"+x for x in args["fields"]] if args["fields"]!=None else None
-    # x_key = "/"+args["x_field"][0] if args["x_field"]!=None else None
-    # if fields != None and x_key != None and x_key not in fields:
-    #     fields.append(x_key)
-    # print(fields)
+    topic_name = args["topic_name"].lstrip("/")
+    topic_type = args["topic_type"]
+    fields = [x for x in args["fields"]] if args["fields"]!=None else None
+    x_key = args["x_field"][0] if args["x_field"]!=None else None
+
     
     shutdown = False
     anysub = MultiSubscriber()
+    time.sleep(0.5)
     display = None
     t = threading.Thread(target=ros_run, args=(anysub,shutdown), daemon=True)
 
@@ -393,6 +426,10 @@ def main():
         with ManagedScreen() as screen:
             if display == None:
                 display = Ros2Plot(screen, 3, 2, anysub)
+                if topic_name != None:
+                    display.add_subscriber(topic_name, topic_type, fields)
+                    if x_key != None:
+                        display.set_x_axis_key(topic_name+"/"+x_key)
             else:
                 display.set_screen(screen)
 
