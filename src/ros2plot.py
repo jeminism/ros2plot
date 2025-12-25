@@ -1,32 +1,28 @@
-import argparse
-import rclpy
-from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
-from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
-from rclpy.node import Node
-from rosidl_runtime_py.utilities import get_message
 
-from asciimatics.screen import Screen, ManagedScreen
+from asciimatics.screen import Screen
 from asciimatics.scene import Scene
 from asciimatics.event import KeyboardEvent, MouseEvent
 from asciimatics.exceptions import ResizeScreenError, StopApplication
-from asciimatics.widgets.popupdialog import PopUpDialog
-import sys
 
 # from effects.graph import GraphXY, GraphData
 from effects.effect_base import DrawOffsets
-from effects.graph_components import XAxis, YAxis, Plot, GraphConfigs, GraphInspector, GraphZoomSelector
-from effects.legend import GraphLegend
-from effects.frames import TextInput, TextLabel, Legend, Selector
+from effects.graph_axis import XAxis, YAxis
+from effects.graph_plot import Plot
+from effects.graph_manipulators import GraphInspector, GraphZoomSelector
+
+from widgets.plots_legend import Legend
+from widgets.plots_selector import Selector
+from widgets.text_input import TextInput
+from widgets.text_label import TextLabel
 
 from utils.colour_palette import COLOURS, NUM_COLOURS
-from utils.graph_math import min_max, multi_min_max, get_mapped_value
+from utils.graph_math import min_max, get_mapped_value
 from utils.graph_data import GraphConfigs, PlotData, RosPlotDataHandler
 
-import threading
 import time
 import math
 
-from anysub import MultiSubscriber
+from ros.multisub import MultiSubscriber
 
 class Ros2Plot(RosPlotDataHandler):
     def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber):
@@ -386,59 +382,3 @@ class Ros2Plot(RosPlotDataHandler):
             if self._screen.has_resized():
                 break
             time.sleep(0.033)
-        
-def ros_run(node, shutdown):
-    # executor = MultiThreadedExecutor()
-    # executor.add_node(node)
-    try:
-        # executor.spin()
-        rclpy.spin(node)
-    except (KeyboardInterrupt, ExternalShutdownException):
-        shutdown = True
-        return
-
-def set_args(parser):
-    parser.add_argument('topic_name', nargs="?", default=None, help='Name of the topic to subscribe')
-    parser.add_argument('topic_type', nargs="?", default=None, help='Type of topic to subscribe to. If missing, will internally attempt to automatically determine the topic type.')
-    parser.add_argument('--fields', nargs='*', help='Specific fields to plot. Expects directory style path.')
-    parser.add_argument('--x-field', nargs=1, help='Specific field to use as x axis. Expects directory style path. If missing, will default to system time')
-
-def main():
-    parser = argparse.ArgumentParser()
-    set_args(parser)
-
-    args = vars(parser.parse_args(sys.argv[1:]))
-    print(args)
-
-    rclpy.init()
-
-    topic_name = args["topic_name"].lstrip("/") if args["topic_name"] != None else None
-    topic_type = args["topic_type"]
-    fields = [x for x in args["fields"]] if args["fields"]!=None else None
-    x_key = args["x_field"][0] if args["x_field"]!=None else None
-
-    
-    shutdown = False
-    anysub = MultiSubscriber()
-    time.sleep(0.5)
-    display = None
-    t = threading.Thread(target=ros_run, args=(anysub,shutdown), daemon=True)
-
-    t.start()
-    while not shutdown:
-        with ManagedScreen() as screen:
-            if display == None:
-                display = Ros2Plot(screen, 3, 2, anysub)
-                if topic_name != None:
-                    display.add_subscriber(topic_name, topic_type, fields)
-                    if x_key != None:
-                        display.set_x_axis_key(topic_name+"/"+x_key)
-            else:
-                display.set_screen(screen)
-
-            display.run(shutdown)
-
-    t.join()
-
-if __name__ == '__main__':
-    main()

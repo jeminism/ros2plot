@@ -1,6 +1,9 @@
 
+from utils.graph_data import GraphConfigs
+
 from asciimatics.screen import Screen
 from asciimatics.effects import Effect
+
 import attrs
 
 @attrs.define
@@ -8,6 +11,7 @@ class DrawOffsets:
     x: int = attrs.field(default=0)
     y: int = attrs.field(default=0)
 
+# speclization to draw on screen with respect to input offsets. Utility functions to automatically clear its own trash only to clean up the screen
 class EffectBase(Effect):
     def __init__(self, screen: Screen, offsets: DrawOffsets):
         super().__init__(screen)
@@ -17,7 +21,6 @@ class EffectBase(Effect):
     def reset(self):
         self._screen.clear()
 
-    
     def stop_frame(self):
         return -1
     
@@ -38,3 +41,10 @@ class EffectBase(Effect):
     
     def _draw(self, frame_no):
         return
+
+
+# minor specialization to store graph config
+class GraphEffect(EffectBase):
+    def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
+        super().__init__(screen, offsets)
+        self._cfg = cfg

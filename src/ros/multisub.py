@@ -1,5 +1,4 @@
 
-import rclpy
 from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.node import Node
@@ -119,12 +118,16 @@ class MultiSubscriber(Node):
 
         return topic_name, found_type
 
-import time
-def topic_print(d:dict):
-    print(f"{d}")
+#####################################
 
+#for isolated testing only
 if __name__ == '__main__':
-    rclpy.init()
+    import rclpy
+    import time
+    def topic_print(d:dict):
+        print(f"{d}")
+        rclpy.init()
+
     main = MultiSubscriber()
     time.sleep(0.5)
     main.add_subscriber(topic_print, "test", "std_msgs/Int8")
