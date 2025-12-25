@@ -232,7 +232,7 @@ class Ros2Plot():
         self.add_effect("legend")
 
     def show_selector(self):
-        self._effects["selector"].set_plots(self._plot_visibility)
+        self._effects["selector"].set_plots(self._plot_visibility, self._x_key)
         self.add_effect("selector")
         
     def show_inspector(self):

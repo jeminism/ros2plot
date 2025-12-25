@@ -204,7 +204,8 @@ class Selector(GenericFrame):
                 i = n
             n+=1
         self._drop_down.options = self._options
-        self._drop_down._line = i
+        # self._drop_down._line = i
+        self._drop_down.value = i
         self._layout.add_widget(self._drop_down)
         self._layout.add_widget(Divider())
 
