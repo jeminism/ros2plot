@@ -1,11 +1,11 @@
 
-
+from utils.arguments import get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
 from ros.multisub import MultiSubscriber
 from ros2plot import Ros2Plot
 
 from asciimatics.screen import Screen, ManagedScreen
 
-import argparse
+# import argparse
 import rclpy
 import sys
 import time
@@ -18,26 +18,16 @@ def ros_spin(node, shutdown):
         shutdown = True
         return
 
-def set_args(parser):
-    parser.add_argument('topic_name', nargs="?", default=None, help='Name of the topic to subscribe')
-    parser.add_argument('topic_type', nargs="?", default=None, help='Type of topic to subscribe to. If missing, will internally attempt to automatically determine the topic type.')
-    parser.add_argument('--fields', nargs='*', help='Specific fields to plot. Expects directory style path.')
-    parser.add_argument('--x-field', nargs=1, help='Specific field to use as x axis. Expects directory style path. If missing, will default to system time')
-
 def main():
-    parser = argparse.ArgumentParser()
-    set_args(parser)
-
-    args = vars(parser.parse_args(sys.argv[1:]))
+    args = get_args(sys.argv[1:])
     print(args)
 
     rclpy.init()
 
-    topic_name = args["topic_name"].lstrip("/") if args["topic_name"] != None else None
-    topic_type = args["topic_type"]
-    fields = [x for x in args["fields"]] if args["fields"]!=None else None
-    x_key = args["x_field"][0] if args["x_field"]!=None else None
-
+    topic_name = args[TOPIC_NAME]
+    topic_type = args[TOPIC_TYPE]
+    fields = args[FIELDS]
+    x_key = args[X_FIELD]
     
     shutdown = False
     m_sub = MultiSubscriber()
