@@ -71,7 +71,6 @@ class Ros2Plot(RosPlotDataHandler):
         self.initialize_plots(auto_add_display=False)
         self.show_plots()
         
-
         # for e in readd:
         #     self.add_effect(e)
 
@@ -114,14 +113,16 @@ class Ros2Plot(RosPlotDataHandler):
 
             if field not in self._effects:
                 self.initialize_effect(field, Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets))
-                self.data[field].colour = COLOURS[self._plot_count%NUM_COLOURS]
-                self.set_plot_x_axis_key(field, self._x_key)
-                
-                self._plot_count += 1
+            else:
+                self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets)
 
-                #just add it to the scene for now
-                if auto_add_display:
-                    self.add_plot(field)
+            self.data[field].colour = COLOURS[self._plot_count%NUM_COLOURS]
+            self.set_plot_x_axis_key(field, self._x_key)
+            
+            self._plot_count += 1
+            
+            if auto_add_display:
+                self.add_plot(field)
     
     def set_x_axis_key(self, x_key=None):
         if x_key != None and x_key not in self.data:
