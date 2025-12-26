@@ -18,6 +18,7 @@ from widgets.text_label import TextLabel
 from utils.colour_palette import COLOURS, NUM_COLOURS
 from utils.graph_math import min_max, get_mapped_value
 from utils.graph_data import GraphConfigs, PlotData, RosPlotDataHandler
+from utils.arguments import get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
 
 import time
 import math
@@ -55,20 +56,25 @@ class Ros2Plot(RosPlotDataHandler):
     
     def set_screen(self, screen):
         readd = []
-        for name in self._effects:
-            if self._effects[name] in self._scene.effects:
-                readd.append(name)
+        # for name in self._effects:
+        #     if self._effects[name] in self._scene.effects:
+        #         readd.append(name)
 
         self._screen = screen
         self._scene = Scene([], duration=-1)
         self._screen.set_scenes([self._scene])
         self.setup_info_bar(self._screen.width-2*self._padding, self._header_bar_height, self._padding, self._padding)
         self.setup_plot()
-        self._plot_count = 0
-        self.initialize_plots()
+        self.add_base_effects()
 
-        for e in readd:
-            self.add_effect(e)
+        self._plot_count = 0
+        self.initialize_plots(auto_add_display=False)
+        self.show_plots()
+        
+
+        # for e in readd:
+        #     self.add_effect(e)
+
         self.update_info_message("Ros2Plot RE-Initialized!")
         self._screen.refresh()
 
@@ -118,6 +124,9 @@ class Ros2Plot(RosPlotDataHandler):
                     self.add_plot(field)
     
     def set_x_axis_key(self, x_key=None):
+        if x_key != None and x_key not in self.data:
+            self.update_info_message(f"Tried to set '{x_key}' as the x axis data but this key does not exist")
+            return
         self._x_key = x_key
         for field in self.data:
             self.set_plot_x_axis_key(field, x_key)
@@ -246,29 +255,36 @@ class Ros2Plot(RosPlotDataHandler):
     def handle_text_input(self, input_val: str):
         ls_split = input_val.split(" ")
         n = len(ls_split)
-        if n == 2:
+        if n == 0:
             # empty input do nothing
             return
-        if n > 2:
-            self.update_info_message(f"Expected at most two input values of <topic> <topic-type (optional)>. Instead received '{input_val}'")
-            return
-        self.add_subscriber(ls_split[0], ls_split[1] if n>1 else None)
+        try:
+            args = get_args(ls_split, silent=True)
+            if args[TOPIC_NAME] != None:
+                self.add_subscriber(args[TOPIC_NAME], args[TOPIC_TYPE], args[FIELDS])
+            if args[X_FIELD] != None:
+                x_key = None
+                if args[X_FIELD] not in ("Time", "time", "TIME", "default", "Default", "DEFAULT", "none", "None", "NONE"):
+                    x_key = args[X_FIELD] if args[TOPIC_NAME]==None else args[TOPIC_NAME]+"/"+args[X_FIELD]
+                self.set_x_axis_key(x_key)
+        except Exception as e:
+            self.update_info_message("Failed to parse input args")
 
     def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
-        topic = topic.lstrip("/")
+        topic = topic
         self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
         self.update_info_message(self._multi_subscriber.get_info_msg())
         self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
         if field_filter != None:
             fails = []
             for field in field_filter:
-                field_name = topic+"/"+field.lstrip("/")
+                field_name = topic+"/"+field
                 if field_name in self._effects:
                     self.add_plot(field_name)
                 else:
-                    fails.append(field)
+                    fails.append(field_name)
             if len(fails) > 0:
-                self.update_info_message(f"Tried to add plot for fields '{fails}' but these are invalid fields in topic '{topic}'")
+                self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
 
     def show_legend(self):
         self._effects["legend"].set_plots(self.data)
@@ -317,7 +333,6 @@ class Ros2Plot(RosPlotDataHandler):
                     self.set_x_axis_key(self._effects["selector"].get_x_field_selection())
             else:
                 if event.key_code == ord('p'):
-                    print(self.data)
                     if self._effects["inspector"] not in self._scene.effects:
                         self._graph_config.pause = not self._graph_config.pause
                 elif event.key_code == ord('l'):
@@ -356,7 +371,6 @@ class Ros2Plot(RosPlotDataHandler):
 
     def run(self, shutdown):
         while not shutdown:
-            self.update_info_message(f"current x key : {self._x_key}")
             try:
                 if not self._graph_config.pause:
                     self.update_graph_config()

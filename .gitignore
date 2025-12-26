@@ -10,3 +10,5 @@ src/widgets/__pycache__/
 src/effects/__pycache__/
 
 experimental/
+
+src/ros/__pycache__/
