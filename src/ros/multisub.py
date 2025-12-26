@@ -1,6 +1,5 @@
 
-from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
-from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+# from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.node import Node
 from rosidl_runtime_py.utilities import get_message
 
