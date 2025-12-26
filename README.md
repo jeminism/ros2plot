@@ -4,3 +4,4 @@ deps:
 - numpy
 - attrs
 - pyyaml
+- rclpy

@@ -12,3 +12,5 @@ src/effects/__pycache__/
 experimental/
 
 src/ros/__pycache__/
+
+venv/
