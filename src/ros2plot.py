@@ -65,10 +65,12 @@ class Ros2Plot(RosPlotDataHandler):
         self.setup_info_bar(self._screen.width-2*self._padding, self._header_bar_height, self._padding, self._padding)
         self.setup_plot()
         self._plot_count = 0
-        self.initialize_plots()
+        self.initialize_plots(auto_add_display=False)
+        self.show_plots()
+        
+        # for e in readd:
+        #     self.add_effect(e)
 
-        for e in readd:
-            self.add_effect(e)
         self.update_info_message("Ros2Plot RE-Initialized!")
         self._screen.refresh()
 
@@ -108,14 +110,16 @@ class Ros2Plot(RosPlotDataHandler):
 
             if field not in self._effects:
                 self.initialize_effect(field, Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets))
-                self.data[field].colour = COLOURS[self._plot_count%NUM_COLOURS]
-                self.set_plot_x_axis_key(field, self._x_key)
-                
-                self._plot_count += 1
+            else:
+                self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets)
 
-                #just add it to the scene for now
-                if auto_add_display:
-                    self.add_plot(field)
+            self.data[field].colour = COLOURS[self._plot_count%NUM_COLOURS]
+            self.set_plot_x_axis_key(field, self._x_key)
+            
+            self._plot_count += 1
+            
+            if auto_add_display:
+                self.add_plot(field)
     
     def set_x_axis_key(self, x_key=None):
         self._x_key = x_key
@@ -317,7 +321,6 @@ class Ros2Plot(RosPlotDataHandler):
                     self.set_x_axis_key(self._effects["selector"].get_x_field_selection())
             else:
                 if event.key_code == ord('p'):
-                    print(self.data)
                     if self._effects["inspector"] not in self._scene.effects:
                         self._graph_config.pause = not self._graph_config.pause
                 elif event.key_code == ord('l'):
