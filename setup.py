@@ -1,7 +1,8 @@
 from setuptools import setup, find_packages
 
+package_name = 'ros2plot'
 setup(
-    name='ros2plot',
+    name=package_name,
     version='0.1.0',
     packages=find_packages(),
     install_requires=[
@@ -10,6 +11,12 @@ setup(
         'numpy',
         'attrs',
         'pyyaml',
+    ],
+    data_files=[
+        # Install marker file in the package index
+        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+        # Include our package.xml file
+        ('share/' + package_name, ['package.xml']),
     ],
     zip_safe=True,
     entry_points={
@@ -20,8 +27,6 @@ setup(
     author='Your Name',
     author_email='your.email@example.com',
     description='Terminal-based real-time plotting tool for ROS2 topics',
-    long_description=open('README.md').read(),
-    long_description_content_type='text/markdown',
     url='https://github.com/yourusername/ros2graph',
     classifiers=[
         'Programming Language :: Python :: 3',
