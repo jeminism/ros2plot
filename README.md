@@ -76,7 +76,7 @@ Control the UI with these keys.
 | `/` | Open subscription input (see below) |
 | `s` | Toggle plot visibility and x-axis selection |
 | `i` | Enter inspection mode (pauses updates) |
-| `z` | Enter zoom configurator (pauses updates) |
+| `z` | Enter zoom configurator (locks current window zoom. updates still occur within locked region) |
 | `x` | Reset zoom to default |
 
 ### Subscription Input Hotkeys
