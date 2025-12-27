@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 package_name = 'ros2plot'
 setup(
     name=package_name,
-    version='0.1.1',
+    version='0.1.2',
     packages=find_packages(),
     install_requires=[
         "setuptools>=60.0,<90.0",       # works with Python 3.10–3.12, avoid very old setuptools

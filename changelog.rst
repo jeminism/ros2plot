@@ -2,6 +2,15 @@
 ## ros2plot Changelog ##
 ########################
 
+0.1.2
+---
+* Enhancements:
+    * Scrollable zoom window. 
+        * Rework implementation for zoom_lock flag, 
+        * Allows the window size to be locked as per the zoom selector widget
+        * Graph rendering is still occuring the background, allowing the plot to be reactive to the window position
+    
+
 0.1.1
 ---
 * Added Changelog, README documentation
