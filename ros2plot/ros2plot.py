@@ -31,6 +31,7 @@ class Ros2Plot(RosPlotDataHandler):
         self._multi_subscriber = multi_subscriber
         self._start_time = self._multi_subscriber.get_time() #sync with ros time
         self._x_key = None
+        self._zoom_lock = False
 
         self._plot_count = 0
 
@@ -351,9 +352,13 @@ class Ros2Plot(RosPlotDataHandler):
                         self._effects["zoom_selector"].e_clear()
                         self.remove_effect("zoom_selector")
                         # self.update_tooltip(self.tooltip())
+                        self._zoom_lock = True
+                        self._graph_config.pause = False
                     else:
                         self._graph_config.pause = True
                         self.show_zoom()
+                elif event.key_code == ord('x'):
+                    self._zoom_lock = False
                 else:
                     self.update_info_message(f"Unhandled Key press '{event.key_code}'")
     
@@ -364,7 +369,7 @@ class Ros2Plot(RosPlotDataHandler):
     def run(self, shutdown):
         while not shutdown:
             try:
-                if not self._graph_config.pause:
+                if not self._graph_config.pause and not self._zoom_lock:
                     self.update_graph_config()
                 
                 if self._effects["zoom_selector"] in self._scene.effects:
