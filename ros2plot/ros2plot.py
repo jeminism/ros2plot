@@ -36,7 +36,6 @@ class Ros2Plot(RosPlotDataHandler):
         self._plot_count = 0
 
         self.update_draw_offsets(padding + 6, padding + header_bar_height+1)
-        self.update_graph_config()
 
         self.setup_info_bar(self._screen.width-2*padding, header_bar_height, padding, padding)
         # self.setup_tooltip(self._screen.width-2*padding, 3, padding, self._screen.height-3-padding)
@@ -44,6 +43,7 @@ class Ros2Plot(RosPlotDataHandler):
         
         self.add_base_effects()
         # self.update_tooltip(self.tooltip())
+        self.update_graph_config()
         self.update_info_message("Ros2Plot Initialized!")
     
     def set_screen(self, screen):
@@ -153,25 +153,29 @@ class Ros2Plot(RosPlotDataHandler):
     def update_graph_config(self):
         self._graph_config.width = self._screen.width-self._draw_offsets.x-self._padding-6 # 6 is the size limit of value labels exetending past the max width of the graph
         self._graph_config.height = self._screen.height-self._draw_offsets.y-self._padding #-4 #3+1 for tooltip footer
-        
-        if len(self.data) > 0 and len(next(iter(self.data.values())).data) > 0:
-            self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
-            if self._x_key == None:
-                first_field_key = next(iter(self.data.keys()))
-                first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data
-                self._graph_config.x_min_value = first_time_data[0] if len(first_time_data) > 0 else self._start_time
-                self._graph_config.x_max_value = self.get_ros_time()
+
+        if self._zoom_lock == False:
+            self.update_info_message("zoom lock release")
+            if len(self.data) > 0 and len(next(iter(self.data.values())).data) > 0:
+                self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
+                if self._x_key == None:
+                    first_field_key = next(iter(self.data.keys()))
+                    first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data
+                    self._graph_config.x_min_value = first_time_data[0] if len(first_time_data) > 0 else self._start_time
+                    self._graph_config.x_max_value = self.get_ros_time()
+                else:
+                    self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data)
             else:
-                self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data)
+                self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
+            
+            if self._graph_config.y_min_value == self._graph_config.y_max_value:
+                self._graph_config.y_min_value -= 1
+                self._graph_config.y_max_value += 1
+            if self._graph_config.x_min_value == self._graph_config.x_max_value:
+                self._graph_config.x_min_value -= 1
+                self._graph_config.x_max_value += 1
         else:
-            self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
-        
-        if self._graph_config.y_min_value == self._graph_config.y_max_value:
-            self._graph_config.y_min_value -= 1
-            self._graph_config.y_max_value += 1
-        if self._graph_config.x_min_value == self._graph_config.x_max_value:
-            self._graph_config.x_min_value -= 1
-            self._graph_config.x_max_value += 1
+            self.update_info_message("zoom lock triggered")
 
         x_0 = 0 
         if self._graph_config.x_min_value < 0 and self._graph_config.x_max_value < 0:
@@ -293,8 +297,10 @@ class Ros2Plot(RosPlotDataHandler):
         self.add_effect("inspector")
 
     def show_zoom(self):
-        self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
+        self.update_info_message(f"[ZOOM SELECTOR] {self._effects["zoom_selector"].get_points_string()}")
         # self.update_tooltip(self._effects["zoom_selector"].tooltip())
+        # lock the config update for automatic axis resizing. we do NOT want to pause because theres no reason to stop the plotting when adjusting window size and location
+        self._zoom_lock = True
         self._effects["zoom_selector"].reset()
         self.add_effect("zoom_selector")
 
@@ -352,10 +358,9 @@ class Ros2Plot(RosPlotDataHandler):
                         self._effects["zoom_selector"].e_clear()
                         self.remove_effect("zoom_selector")
                         # self.update_tooltip(self.tooltip())
-                        self._zoom_lock = True
-                        self._graph_config.pause = False
+                        # self._graph_config.pause = False
                     else:
-                        self._graph_config.pause = True
+                        # self._graph_config.pause = True
                         self.show_zoom()
                 elif event.key_code == ord('x'):
                     self._zoom_lock = False
@@ -369,11 +374,11 @@ class Ros2Plot(RosPlotDataHandler):
     def run(self, shutdown):
         while not shutdown:
             try:
-                if not self._graph_config.pause and not self._zoom_lock:
+                if not self._graph_config.pause:
                     self.update_graph_config()
                 
-                if self._effects["zoom_selector"] in self._scene.effects:
-                    self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
+                # if self._effects["zoom_selector"] in self._scene.effects:
+                    # self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
 
                 if self._effects["inspector"] in self._scene.effects:
                     self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
