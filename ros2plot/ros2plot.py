@@ -294,6 +294,7 @@ class Ros2Plot(RosPlotDataHandler):
     def show_inspector(self):
         self._effects["inspector"].set_x_value()
         # self.update_tooltip(self._effects["inspector"].tooltip())
+        self._zoom_lock = True
         self.add_effect("inspector")
 
     def show_zoom(self):
@@ -351,7 +352,7 @@ class Ros2Plot(RosPlotDataHandler):
                         self.remove_effect("inspector")
                         # self.update_tooltip(self.tooltip())
                     else:
-                        self._graph_config.pause = True
+                        # self._graph_config.pause = True
                         self.show_inspector()
                 elif event.key_code == ord('z'):
                     if self._effects["zoom_selector"] in self._scene.effects:
