@@ -1,98 +1,125 @@
-version 0.1.1
-
 # ros2plot
 
-Ros2Plot is a terminal based utility to plot ROS2 topic data. It will automatically grab all numeric fields (Int, Float, Bool) in any message and store it internally. By default, the plot of each field is generated as a time series. However, specific values for the x-axis can be chosen from any of the stored fields from existing subscriptions.
+![Version](https://img.shields.io/badge/version-0.1.1-blue)
 
-## Usage:
-Assuming pip installation, simply run 'ros2plot'.
+A terminal-based, real-time plotting tool for ROS2 topics. Ros2Plot automatically introspects ROS2 message types to extract numeric fields (int, float, bool) and plots them as time series. It uses asciimatics for the UI and braille characters for high-definition plots, supporting custom x-axes and interactive controls.
 
-### Hotkeys:
-While the application is running, hotkeys are used to control the UI elements.
-| Hotkey | Description |
-| - | - |
-| 'p' | Pause the rendering |
-| '/' | Open the Subscription Input widget (additional hotkeys below) |
-| 's' | Opens / Close Plot Visibility and X-Axis Selection window (additional hotkeys below). Press again to close.|
-| 'i' | Initialize inspection mode (additional hotkeys below). Automatically pauses graph updates. |
-| 'z' | Initialize zoom configurator (additional hotkeys below). Automatically pauses graph updates. (Defined window zoom settings while the configurator is active are retained until 'x' is pressed)|
-| 'x' | Resets window to default zoom values (encapsulate all stored values of visible plots) |
+## Table of Contents
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Hotkeys](#hotkeys)
+- [Command-Line Arguments](#command-line-arguments)
 
+## Features
+- **Real-Time Plotting**: Subscribe to ROS2 topics and plot numeric fields dynamically.
+- **High-Definition Display**: Uses braille characters for 2x4 pixel resolution.
+- **Interactive UI**: Pause, zoom, inspect, and select plots with hotkeys.
+- **Customizable Axes**: Choose any stored field for the x-axis.
 
-#### Subscription Input Hotkeys
-| Hotkey | Description |
-| - | - |
-| Enter | Parse input |
-| Up Arrow | Scroll prior inputs. Max history of past 100 entered values |
+## Installation
 
-#### Plot Selection Hotkeys
-The field to use for the X-Axis can also be selected here. All available fields are listed as a dropdown list which apepars upon selection.
+### Prerequisites
+- ROS2 (e.g., Jazzy or later) installed and sourced.
+- Python 3.8+ with pip.
 
-| Hotkey | Description |
-| - | - |
-| Space / Enter | Accept selection |
-| Up Arrow | Selection move up |
-| Down Arrow | Selection move down |
-
-#### Inspection Hotkeys
-| Hotkey | Description |
-| - | - |
-| Left Arrow | Scroll left |
-| Right Arrow | Scroll right |
-| Ctrl + Arrow | Scroll finer resolution (slower) |
-| 'i' | Exits inspection mode. Automatically unpauses. | 
-
-#### Zoom Configurator Hotkeys
-Zoom Configurator requires control of two points in the lower left and upper left corners. When a point is selected, it will appear GREEN in colour.
-
-| Hotkey | Description |
-| - | - |
-| Tab | Toggle control point selection. |
-| Left Arrow | Scroll selected point(s) left |
-| Right Arrow | Scroll selected point(s) right |
-| Up Arrow | Scroll selected point(s) up |
-| Down Arrow | Scroll selected point(s) down |
-| Ctrl + Arrow | Scroll finer resolution (slower) |
-| 'z' | Exits Zoom Configurator mode. Automatically unpauses. | 
-
-
-### Optional Input arguments:
-Ros2Plot uses input arguments to define a desired subscription. When entered as part of the ros2plot cli command, it will deine an initial subscription and plot state. The same arguments are also accepted via the input widget while the application is running.
-
-Usage: ros2plot <1> <2> [--fields <[*]> --x-field <[1]>]
-
-| Argument | Description |
-| 1 | Topic Name. Required to trigger a subscription. |
-| 2 | Topic Type input for explicit subscription. Fully optional. If none provided, ros2plot will search the current topics for a matching name. |
-| --fields | Optional. Defines a list of fields to use for plotting. If not provided, all numeric fields will be displayed by default. Must be provided with a topic name. Expects relative field names (e.g for a PoseStamped msg, pose/position/x is valid) |
-| -x-field | Optional, does not require a topic name. Expects name of the field to use. If received with a topic name, expects relative field name (same as --field). If received without a topic name, expects full field with topic_name pre-pended (e.g. <pose_stamped_topic_name>/pose/position/x) |
-
-## Installation & running:
-
-### Python Dependencies:
+### Dependencies
 - asciimatics
 - numpy
 - attrs
 - pyyaml
-- rclpy
 
-### Pip:
-- cd ros2plot
-- python3 -m venv venv
-- source venv/bin/activate
-- python3 -m pip install .
-- source /opt/<ros-distro>/setup.bash
-- ros2plot
+Install via pip or ROS2 package.
 
-### ROS2:
-- cd <your_ws>
-- python3 -m venv venv
-- source venv/bin/activate
-- python3 -m pip install -r src/ros2plot/requirements.txt
-- export PYTHON_EXECUTABLE=$(which python3)
-- colcon build --symlink-install --packages-select ros2plot
-- source install/setup.bash
-- ros2 run ros2plot ros2plot
-    - alternatively, if encountering module import issues: python3 -m ros2plot.main
+### Option 1: Pip Installation
+For standalone use:
+```bash
+cd ros2graph  # Or your project root
+python3 -m venv venv
+source venv/bin/activate  
+pip install -r requirements.txt
+pip install .
+source /opt/ros/<distro>/setup.bash  # Replace <distro> with your ROS2 version
+ros2plot
+```
+
+### Option 2: ROS2 Package Installation
+For integration with ROS2 workspaces:
+```bash
+cd <your_ws>
+python3 -m venv venv
+source venv/bin/activate  # Adjust for Windows if needed
+pip install -r src/ros2plot/requirements.txt
+export PYTHON_EXECUTABLE=$(which python3)
+colcon build --symlink-install --packages-select ros2plot
+source install/setup.bash
+ros2 run ros2plot ros2plot
+# If import issues: python3 -m ros2plot.main
+```
+
+
+## Usage
+Run `ros2plot` after installation. The app starts with a blank screen; use hotkeys to subscribe and plot.
+
+Example: Plot pose data from a topic.
+```bash
+ros2plot /robot/pose geometry_msgs/PoseStamped --fields pose/position/y --x-field pose/position/y
+```
+
+## Hotkeys
+Control the UI with these keys.
+
+### General Hotkeys
+| Hotkey | Description |
+|--------|-------------|
+| `p` | Pause rendering |
+| `/` | Open subscription input (see below) |
+| `s` | Toggle plot visibility and x-axis selection |
+| `i` | Enter inspection mode (pauses updates) |
+| `z` | Enter zoom configurator (pauses updates) |
+| `x` | Reset zoom to default |
+
+### Subscription Input Hotkeys
+| Hotkey | Description |
+|--------|-------------|
+| Enter | Parse input |
+| ↑ | Scroll prior inputs (max 100) |
+
+### Plot Selection Hotkeys
+Select fields for plotting or x-axis.
+| Hotkey | Description |
+|--------|-------------|
+| Space/Enter | Accept selection |
+| ↑/↓ | Navigate list |
+
+### Inspection Mode Hotkeys
+| Hotkey | Description |
+|--------|-------------|
+| ←/→ | Scroll left/right |
+| Ctrl + Arrow | Fine scroll |
+| `i` | Exit mode (unpauses) |
+
+### Zoom Configurator Hotkeys
+Controls two points (green when selected).
+| Hotkey | Description |
+|--------|-------------|
+| Tab | Toggle point selection |
+| Arrows | Move points |
+| Ctrl + Arrow | Fine move |
+| `z` | Exit mode (unpauses) |
+
+## Command-Line Arguments
+Define initial subscriptions via CLI or in-app input.
+
+Usage: `ros2plot <topic> [type] [--fields <fields>] [--x-field <field>]`
+
+| Argument | Description | Example |
+|----------|-------------|---------|
+| `<topic>` | Topic name (required in-app, optional command line) | `/pose_topic` |
+| `[type]` | Message type (optional; auto-detected if omitted) | `geometry_msgs/PoseStamped` |
+| `--fields` | relative fields to plot (optional; all numeric fields are plotted if omitted) | `--fields pose/position/x pose/position/y` |
+| `--x-field` | Field for x-axis (optional; defaults to timestamp). If provided with a topic_name, expects relative field path. If provided standalone, expects topic_name-qualified path | With topic name:<br> `--x-field pose/position/x` <br><br> Standalone:<br>`--x-field pose_topic/pose/position/x` |
+
+
 
 
