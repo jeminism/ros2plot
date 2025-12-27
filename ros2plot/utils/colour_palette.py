@@ -10,11 +10,11 @@ MAGENTA=Screen.COLOUR_MAGENTA
 CYAN=Screen.COLOUR_CYAN
 WHITE=Screen.COLOUR_WHITE
 
-COLOURS=[RED,
+COLOURS_LIST=[RED,
          GREEN,
          YELLOW,
          BLUE,
          MAGENTA,
          CYAN]
          
-NUM_COLOURS = len(COLOURS)        
+NUM_COLOURS = len(COLOURS_LIST)        

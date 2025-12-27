@@ -1,12 +1,8 @@
 
 
-from utils.graph_math import get_mapped_value, min_max
-from utils.graph_data import GraphConfigs, PlotData
 
-import utils.key_codes as KEY_CODES
-import utils.colour_palette as COLOURS
-
-from effects.effect_base import GraphEffect, DrawOffsets
+from ..utils import get_mapped_value, min_max, GraphConfigs, PlotData, KEY_CODES, COLOURS
+from .effect_base import GraphEffect, DrawOffsets
 
 from asciimatics.screen import Screen
 from asciimatics.event import KeyboardEvent, MouseEvent
@@ -36,7 +32,7 @@ class GraphPoint():
 
 class GraphZoomSelector(GraphEffect):
     def __init__(self, screen: Screen, cfg: GraphConfigs, offsets: DrawOffsets=DrawOffsets()):
-        super().__init__(screen, cfg, offsets)
+        super().__init__(screen, cfg, offsets, redraw_on_pause=False)
         self.pt_1 = GraphPoint(self._cfg.x_min_value, self._cfg.y_min_value)
         self.pt_2 = GraphPoint(self._cfg.x_max_value, self._cfg.y_max_value)
         self._focus = 0
@@ -160,7 +156,7 @@ class GraphZoomSelector(GraphEffect):
 
 class GraphInspector(GraphEffect):
     def __init__(self, screen: Screen, cfg: GraphConfigs, plot_data: dict[str, PlotData], initial_x_value=None, offsets: DrawOffsets=DrawOffsets()):
-        super().__init__(screen, cfg, offsets)
+        super().__init__(screen, cfg, offsets, redraw_on_pause=False)
         self._plot_data = plot_data
         self._x_value = initial_x_value
 

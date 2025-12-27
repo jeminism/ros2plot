@@ -1,5 +1,5 @@
 
-from widgets.frame_base import GenericFrame
+from .frame_base import GenericFrame
 
 from asciimatics.widgets.layout import Layout
 from asciimatics.widgets.label import Label

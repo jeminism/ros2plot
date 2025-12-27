@@ -1,6 +1,6 @@
 
 from rclpy.node import Node
-import utils.colour_palette as COLOURS
+from . import colour_palette as COLOURS
 
 import attrs
 

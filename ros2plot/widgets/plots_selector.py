@@ -1,16 +1,13 @@
 
-from widgets.frame_base import GenericFrame
+from .frame_base import GenericFrame
+from ..utils import PlotData, TIMESTAMP_KEY
 
 from asciimatics.widgets.layout import Layout
-
 from asciimatics.widgets.checkbox import CheckBox 
 from asciimatics.widgets.dropdownlist import DropdownList 
 from asciimatics.widgets.divider import Divider 
 
 from asciimatics.event import KeyboardEvent, MouseEvent
-
-from utils.graph_data import PlotData, TIMESTAMP_KEY
-
 
 class Selector(GenericFrame):
     def __init__(self, screen, x_key, width=None, height=None, x=0, y=0):

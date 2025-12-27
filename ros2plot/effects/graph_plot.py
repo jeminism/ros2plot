@@ -1,11 +1,6 @@
 
-
-from utils.graph_math import get_mapped_value, bresenham
-from utils.braille import braille_char
-from utils.grid import Grid
-from utils.graph_data import GraphConfigs, PlotData
-
-from effects.effect_base import GraphEffect, DrawOffsets
+from ..utils import get_mapped_value, bresenham, braille_char, GraphConfigs, PlotData, Grid
+from .effect_base import GraphEffect, DrawOffsets
 
 from asciimatics.screen import Screen
 
@@ -72,7 +67,7 @@ class Plot(GraphEffect):
             if x_index > width-1 or x_index < 0 or y_index > height-1 or y_index < 0:
                 continue
 
-            if self._plt.interpolate:
+            if self._plt.interpolate and last != -1:
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
                     if pt[0] > width-1 or pt[0] < 0 or pt[1] > height-1 or pt[1] < 0:
                         continue

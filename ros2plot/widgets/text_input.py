@@ -1,10 +1,11 @@
 
-from widgets.frame_base import GenericFrame
+from .frame_base import GenericFrame
 
 from asciimatics.widgets.layout import Layout
 from asciimatics.widgets.text import Text
 
 from asciimatics.event import KeyboardEvent, MouseEvent
+
 from collections import deque
 
 

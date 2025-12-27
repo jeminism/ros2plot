@@ -10,3 +10,24 @@ src/widgets/__pycache__/
 src/effects/__pycache__/
 
 experimental/
+
+src/ros/__pycache__/
+
+venv/
+
+src/ros2plot.egg-info/
+
+build/
+
+
+ros2plot/__pycache__/
+
+ros2plot/ros/__pycache__/
+
+ros2plot/utils/__pycache__/
+
+ros2plot/widgets/__pycache__/
+
+ros2plot.egg-info/
+
+ros2plot/effects/__pycache__/
