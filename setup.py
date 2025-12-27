@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 package_name = 'ros2plot'
 setup(
     name=package_name,
-    version='0.1.0',
+    version='0.1.1',
     packages=find_packages(),
     install_requires=[
         "setuptools>=60.0,<90.0",       # works with Python 3.10–3.12, avoid very old setuptools
@@ -24,14 +24,12 @@ setup(
             'ros2plot = ros2plot.main:main',
         ],
     },
-    author='Your Name',
-    author_email='your.email@example.com',
+    author='Jeremy Tan',
     description='Terminal-based real-time plotting tool for ROS2 topics',
-    url='https://github.com/yourusername/ros2graph',
+    url='https://github.com/jeminism/ros2plot',
     classifiers=[
         'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: OS Independent',
+        'License :: OSI Approved :: MIT License'
     ],
     python_requires='>=3.6',
 )

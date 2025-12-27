@@ -4,7 +4,6 @@
   <name>ros2plot</name>
   <version>0.1.1</version>
   <description>TODO</description>
-  <maintainer email="jeremytzh96@gmail.com">Jeremy Tan</maintainer>
   <license>MIT License</license>
 
   <depend>rclpy</depend>
