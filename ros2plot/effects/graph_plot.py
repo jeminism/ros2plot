@@ -1,5 +1,5 @@
 
-from ..utils import get_mapped_value, bresenham, braille_char, GraphConfigs, PlotData
+from ..utils import get_mapped_value, bresenham, braille_char, GraphConfigs, PlotData, Grid
 from .effect_base import GraphEffect, DrawOffsets
 
 from asciimatics.screen import Screen

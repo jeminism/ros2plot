@@ -8,7 +8,7 @@ from .effects import DrawOffsets, XAxis, YAxis, Plot, GraphInspector, GraphZoomS
 
 from .widgets import Legend, Selector, TextInput, TextLabel
 
-from .utils import COLOURS, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
+from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
 
 from .ros import MultiSubscriber
 
@@ -107,7 +107,7 @@ class Ros2Plot(RosPlotDataHandler):
             else:
                 self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets)
 
-            self.data[field].colour = COLOURS[self._plot_count%NUM_COLOURS]
+            self.data[field].colour = COLOURS_LIST[self._plot_count%NUM_COLOURS]
             self.set_plot_x_axis_key(field, self._x_key)
             
             self._plot_count += 1
