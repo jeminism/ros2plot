@@ -1,11 +1,6 @@
 
-
-from utils.graph_math import get_mapped_value, bresenham
-from utils.braille import braille_char
-from utils.grid import Grid
-from utils.graph_data import GraphConfigs, PlotData
-
-from effects.effect_base import GraphEffect, DrawOffsets
+from ..utils import get_mapped_value, bresenham, braille_char, GraphConfigs, PlotData
+from .effect_base import GraphEffect, DrawOffsets
 
 from asciimatics.screen import Screen
 

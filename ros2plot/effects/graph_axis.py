@@ -1,5 +1,5 @@
 
-from effects.effect_base import GraphEffect
+from .effect_base import GraphEffect
 
 class YAxis(GraphEffect):
     

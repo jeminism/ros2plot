@@ -1,12 +1,8 @@
 
 
-from utils.graph_math import get_mapped_value, min_max
-from utils.graph_data import GraphConfigs, PlotData
 
-import utils.key_codes as KEY_CODES
-import utils.colour_palette as COLOURS
-
-from effects.effect_base import GraphEffect, DrawOffsets
+from ..utils import get_mapped_value, min_max, GraphConfigs, PlotData, KEY_CODES, COLOURS
+from .effect_base import GraphEffect, DrawOffsets
 
 from asciimatics.screen import Screen
 from asciimatics.event import KeyboardEvent, MouseEvent

@@ -1,10 +1,9 @@
 
-from widgets.frame_base import GenericFrame
-from widgets.text_label import ColouredLabel
+from .frame_base import GenericFrame
+from .text_label import ColouredLabel
+from ..utils import PlotData
+
 from asciimatics.widgets.layout import Layout
-
-from utils.graph_data import PlotData
-
 
 class Legend(GenericFrame):
     def __init__(self, screen, width=None, height=None, x=0, y=0):

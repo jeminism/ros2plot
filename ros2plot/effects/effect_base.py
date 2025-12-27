@@ -1,5 +1,5 @@
 
-from utils.graph_data import GraphConfigs
+from ..utils import GraphConfigs
 
 from asciimatics.screen import Screen
 from asciimatics.effects import Effect

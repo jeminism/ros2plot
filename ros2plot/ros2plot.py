@@ -4,26 +4,17 @@ from asciimatics.scene import Scene
 from asciimatics.event import KeyboardEvent, MouseEvent
 from asciimatics.exceptions import ResizeScreenError, StopApplication
 
-# from effects.graph import GraphXY, GraphData
-from effects.effect_base import DrawOffsets
-from effects.graph_axis import XAxis, YAxis
-from effects.graph_plot import Plot
-from effects.graph_manipulators import GraphInspector, GraphZoomSelector
+from .effects import DrawOffsets, XAxis, YAxis, Plot, GraphInspector, GraphZoomSelector
 
-from widgets.plots_legend import Legend
-from widgets.plots_selector import Selector
-from widgets.text_input import TextInput
-from widgets.text_label import TextLabel
+from .widgets import Legend, Selector, TextInput, TextLabel
 
-from utils.colour_palette import COLOURS, NUM_COLOURS
-from utils.graph_math import min_max, get_mapped_value
-from utils.graph_data import GraphConfigs, PlotData, RosPlotDataHandler
-from utils.arguments import get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
+from .utils import COLOURS, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
+
+from .ros import MultiSubscriber
 
 import time
 import math
 
-from ros.multisub import MultiSubscriber
 
 class Ros2Plot(RosPlotDataHandler):
     def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber):

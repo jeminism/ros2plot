@@ -1,7 +1,7 @@
 
-from utils.arguments import get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
-from ros.multisub import MultiSubscriber
-from ros2plot.ros2plot import Ros2Plot
+from .utils import get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
+from .ros import MultiSubscriber
+from .ros2plot import Ros2Plot
 
 from asciimatics.screen import Screen, ManagedScreen
 
