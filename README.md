@@ -7,7 +7,7 @@ A terminal-based, real-time plotting tool for ROS2 topics. Ros2Plot automaticall
 ## Demo
 Here's a quick demo showcasing key features of runtime subscription, Plot value inspection & Plot Display region resizing.
 
-<video src="./doc/demo.gif" controls width="600"></video>
+![Demo](./doc/demo.gif)
 
 ## Table of Contents
 - [Features](#features)
