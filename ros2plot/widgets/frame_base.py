@@ -19,3 +19,7 @@ class GenericFrame(Frame):
     def cleanup(self):
         for y in range(self._y, self._y+self._height):
             self._screen.print_at("  "*self._width, self._x, y)
+        self._cleanup_impl()
+
+    def _cleanup_impl(self):
+        return

@@ -20,6 +20,14 @@ class Selector(GenericFrame):
         self._options = []
         self._x_key = x_key
     
+    def _cleanup_impl(self):
+        # manual clearing of any artefacts left behind because we do not have control over any clearing functionality of the dropdownlist child widgets
+        # TODO: if the list size exceeds the frame height, artefacts still remain even after list selection for some reason even if this function 
+        #       is registered as on_change for the dropdownlist. investigate.
+        if self._drop_down._child and self._drop_down._child in self._scene.effects:
+            self._drop_down._child.close()
+        self._screen.clear()
+        
     def get_x_field_selection(self):
         v = self._drop_down.value
         for value, i in self._options:
