@@ -6,6 +6,9 @@
 ---
 * Fix:
     * Fix issue where ghost points may appear when using the inspector due to new points in the data set which are not yet rendered when paused
+    * Fix issue where artefacts from the dropdown list in selector remain after closing it
+    * Fix incorrect import path is ros package init script
+    * Fix issue where all plots would be re-added and become visible if receiving a subscription command to '/'
 * Enhancements:
     * Scrollable zoom window. 
         * Rework implementation for zoom_lock flag, 
