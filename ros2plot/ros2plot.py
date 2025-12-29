@@ -262,19 +262,24 @@ class Ros2Plot(RosPlotDataHandler):
 
     def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
         topic = topic
-        self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
+        ok = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
         self.update_info_message(self._multi_subscriber.get_info_msg())
-        self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
-        if field_filter != None:
-            fails = []
-            for field in field_filter:
-                field_name = topic+"/"+field
-                if field_name in self._effects:
-                    self.add_plot(field_name)
-                else:
-                    fails.append(field_name)
-            if len(fails) > 0:
-                self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
+        if ok:
+            # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
+            self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
+            if field_filter != None:
+                fails = []
+                for field in field_filter:
+                    found = False
+                    field_name = topic+"/"+field
+                    for topic_field in self._effects:
+                        if field_name in topic_field:
+                            self.add_plot(topic_field)
+                            found = True
+                    if not found:
+                        fails.append(field_name)
+                if len(fails) > 0:
+                    self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
 
     def show_legend(self):
         self._effects["legend"].set_plots(self.data)
