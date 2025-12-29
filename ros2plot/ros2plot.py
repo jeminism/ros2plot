@@ -152,10 +152,9 @@ class Ros2Plot(RosPlotDataHandler):
 
     def update_graph_config(self):
         self._graph_config.width = self._screen.width-self._draw_offsets.x-self._padding-6 # 6 is the size limit of value labels exetending past the max width of the graph
-        self._graph_config.height = self._screen.height-self._draw_offsets.y-self._padding #-4 #3+1 for tooltip footer
+        self._graph_config.height = self._screen.height-self._draw_offsets.y-self._padding 
 
         if self._zoom_lock == False:
-            self.update_info_message("zoom lock release")
             if len(self.data) > 0 and len(next(iter(self.data.values())).data) > 0:
                 self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
                 if self._x_key == None:
@@ -174,8 +173,6 @@ class Ros2Plot(RosPlotDataHandler):
             if self._graph_config.x_min_value == self._graph_config.x_max_value:
                 self._graph_config.x_min_value -= 1
                 self._graph_config.x_max_value += 1
-        else:
-            self.update_info_message("zoom lock triggered")
 
         x_0 = 0 
         if self._graph_config.x_min_value < 0 and self._graph_config.x_max_value < 0:
@@ -192,10 +189,6 @@ class Ros2Plot(RosPlotDataHandler):
         self._graph_config.x = get_mapped_value(x_0, self._graph_config.x_max_value, self._graph_config.width-1, self._graph_config.x_min_value, 0)
         self._graph_config.y = get_mapped_value(y_0, self._graph_config.y_max_value, 0, self._graph_config.y_min_value, self._graph_config.height-1)
         
-        # try:    
-        # except Exception as e:
-        #     print(f"{e}. {0 if self._graph_config.y_min_value < 0 else self._graph_config.y_min_value}, y_min: {self._graph_config.y_min_value}, y_max: {self._graph_config.y_max_value}")
-
     def initialize_effect(self, name, effect=None):
         if name in self._effects:
             if self._effects[name] != None:

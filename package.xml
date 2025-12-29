@@ -3,6 +3,8 @@
 <package format="3">
   <name>ros2plot</name>
   <version>0.1.2</version>
+  <description>A terminal-based runtime graph plotting utility for ROS2 topics.</description>
+  <maintainer email="jeremy@todo.todo">Jeremy Tan</maintainer>
   <description>TODO</description>
   <license>MIT License</license>
 
