@@ -1,8 +1,13 @@
 # ros2plot
 
-![Version](https://img.shields.io/badge/version-0.1.1-blue)
+![Version](https://img.shields.io/badge/version-0.1.2-blue)
 
 A terminal-based, real-time plotting tool for ROS2 topics. Ros2Plot automatically introspects ROS2 message types to extract numeric fields (int, float, bool) and plots them as time series. It uses asciimatics for the UI and braille characters for high-definition plots, supporting custom x-axes and interactive controls.
+
+## Demo
+Here's a quick demo showcasing key features of runtime subscription, Plot value inspection & Plot Display region resizing.
+
+![Demo](./doc/demo.gif)
 
 ## Table of Contents
 - [Features](#features)
@@ -76,7 +81,7 @@ Control the UI with these keys.
 | `/` | Open subscription input (see below) |
 | `s` | Toggle plot visibility and x-axis selection |
 | `i` | Enter inspection mode (pauses updates) |
-| `z` | Enter zoom configurator (pauses updates) |
+| `z` | Enter zoom configurator (locks current window zoom. updates still occur within locked region) |
 | `x` | Reset zoom to default |
 
 ### Subscription Input Hotkeys

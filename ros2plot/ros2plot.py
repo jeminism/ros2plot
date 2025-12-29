@@ -36,7 +36,6 @@ class Ros2Plot(RosPlotDataHandler):
         self._plot_count = 0
 
         self.update_draw_offsets(padding + 6, padding + header_bar_height+1)
-        self.update_graph_config()
 
         self.setup_info_bar(self._screen.width-2*padding, header_bar_height, padding, padding)
         # self.setup_tooltip(self._screen.width-2*padding, 3, padding, self._screen.height-3-padding)
@@ -44,6 +43,7 @@ class Ros2Plot(RosPlotDataHandler):
         
         self.add_base_effects()
         # self.update_tooltip(self.tooltip())
+        self.update_graph_config()
         self.update_info_message("Ros2Plot Initialized!")
     
     def set_screen(self, screen):
@@ -152,26 +152,27 @@ class Ros2Plot(RosPlotDataHandler):
 
     def update_graph_config(self):
         self._graph_config.width = self._screen.width-self._draw_offsets.x-self._padding-6 # 6 is the size limit of value labels exetending past the max width of the graph
-        self._graph_config.height = self._screen.height-self._draw_offsets.y-self._padding #-4 #3+1 for tooltip footer
-        
-        if len(self.data) > 0 and len(next(iter(self.data.values())).data) > 0:
-            self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
-            if self._x_key == None:
-                first_field_key = next(iter(self.data.keys()))
-                first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data
-                self._graph_config.x_min_value = first_time_data[0] if len(first_time_data) > 0 else self._start_time
-                self._graph_config.x_max_value = self.get_ros_time()
+        self._graph_config.height = self._screen.height-self._draw_offsets.y-self._padding 
+
+        if self._zoom_lock == False:
+            if len(self.data) > 0 and len(next(iter(self.data.values())).data) > 0:
+                self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
+                if self._x_key == None:
+                    first_field_key = next(iter(self.data.keys()))
+                    first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data
+                    self._graph_config.x_min_value = first_time_data[0] if len(first_time_data) > 0 else self._start_time
+                    self._graph_config.x_max_value = self.get_ros_time()
+                else:
+                    self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data)
             else:
-                self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data)
-        else:
-            self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
-        
-        if self._graph_config.y_min_value == self._graph_config.y_max_value:
-            self._graph_config.y_min_value -= 1
-            self._graph_config.y_max_value += 1
-        if self._graph_config.x_min_value == self._graph_config.x_max_value:
-            self._graph_config.x_min_value -= 1
-            self._graph_config.x_max_value += 1
+                self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
+            
+            if self._graph_config.y_min_value == self._graph_config.y_max_value:
+                self._graph_config.y_min_value -= 1
+                self._graph_config.y_max_value += 1
+            if self._graph_config.x_min_value == self._graph_config.x_max_value:
+                self._graph_config.x_min_value -= 1
+                self._graph_config.x_max_value += 1
 
         x_0 = 0 
         if self._graph_config.x_min_value < 0 and self._graph_config.x_max_value < 0:
@@ -188,10 +189,6 @@ class Ros2Plot(RosPlotDataHandler):
         self._graph_config.x = get_mapped_value(x_0, self._graph_config.x_max_value, self._graph_config.width-1, self._graph_config.x_min_value, 0)
         self._graph_config.y = get_mapped_value(y_0, self._graph_config.y_max_value, 0, self._graph_config.y_min_value, self._graph_config.height-1)
         
-        # try:    
-        # except Exception as e:
-        #     print(f"{e}. {0 if self._graph_config.y_min_value < 0 else self._graph_config.y_min_value}, y_min: {self._graph_config.y_min_value}, y_max: {self._graph_config.y_max_value}")
-
     def initialize_effect(self, name, effect=None):
         if name in self._effects:
             if self._effects[name] != None:
@@ -265,19 +262,24 @@ class Ros2Plot(RosPlotDataHandler):
 
     def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
         topic = topic
-        self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
+        ok = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
         self.update_info_message(self._multi_subscriber.get_info_msg())
-        self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
-        if field_filter != None:
-            fails = []
-            for field in field_filter:
-                field_name = topic+"/"+field
-                if field_name in self._effects:
-                    self.add_plot(field_name)
-                else:
-                    fails.append(field_name)
-            if len(fails) > 0:
-                self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
+        if ok:
+            # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
+            self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
+            if field_filter != None:
+                fails = []
+                for field in field_filter:
+                    found = False
+                    field_name = topic+"/"+field
+                    for topic_field in self._effects:
+                        if field_name in topic_field:
+                            self.add_plot(topic_field)
+                            found = True
+                    if not found:
+                        fails.append(field_name)
+                if len(fails) > 0:
+                    self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
 
     def show_legend(self):
         self._effects["legend"].set_plots(self.data)
@@ -290,11 +292,14 @@ class Ros2Plot(RosPlotDataHandler):
     def show_inspector(self):
         self._effects["inspector"].set_x_value()
         # self.update_tooltip(self._effects["inspector"].tooltip())
+        self._zoom_lock = True
         self.add_effect("inspector")
 
     def show_zoom(self):
-        self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
+        self.update_info_message(f"[ZOOM SELECTOR] {self._effects["zoom_selector"].get_points_string()}")
         # self.update_tooltip(self._effects["zoom_selector"].tooltip())
+        # lock the config update for automatic axis resizing. we do NOT want to pause because theres no reason to stop the plotting when adjusting window size and location
+        self._zoom_lock = True
         self._effects["zoom_selector"].reset()
         self.add_effect("zoom_selector")
 
@@ -345,22 +350,21 @@ class Ros2Plot(RosPlotDataHandler):
                         self.remove_effect("inspector")
                         # self.update_tooltip(self.tooltip())
                     else:
-                        self._graph_config.pause = True
+                        # self._graph_config.pause = True
                         self.show_inspector()
                 elif event.key_code == ord('z'):
                     if self._effects["zoom_selector"] in self._scene.effects:
                         self._effects["zoom_selector"].e_clear()
                         self.remove_effect("zoom_selector")
                         # self.update_tooltip(self.tooltip())
-                        self._zoom_lock = True
-                        self._graph_config.pause = False
+                        # self._graph_config.pause = False
                     else:
-                        self._graph_config.pause = True
+                        # self._graph_config.pause = True
                         self.show_zoom()
                 elif event.key_code == ord('x'):
                     self._zoom_lock = False
-                else:
-                    self.update_info_message(f"Unhandled Key press '{event.key_code}'")
+                # else:
+                #     self.update_info_message(f"Unhandled Key press '{event.key_code}'")
     
     def tooltip(self):
         return "p : Pause plot rendering | l : show legend | s : toggle plot visibility | i : open value inspector | z : open window resizer | / : open subscription configurator"        
@@ -369,7 +373,7 @@ class Ros2Plot(RosPlotDataHandler):
     def run(self, shutdown):
         while not shutdown:
             try:
-                if not self._graph_config.pause and not self._zoom_lock:
+                if not self._graph_config.pause:
                     self.update_graph_config()
                 
                 if self._effects["zoom_selector"] in self._scene.effects:
