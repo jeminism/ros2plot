@@ -363,8 +363,8 @@ class Ros2Plot(RosPlotDataHandler):
                         self.show_zoom()
                 elif event.key_code == ord('x'):
                     self._zoom_lock = False
-                else:
-                    self.update_info_message(f"Unhandled Key press '{event.key_code}'")
+                # else:
+                #     self.update_info_message(f"Unhandled Key press '{event.key_code}'")
     
     def tooltip(self):
         return "p : Pause plot rendering | l : show legend | s : toggle plot visibility | i : open value inspector | z : open window resizer | / : open subscription configurator"        
