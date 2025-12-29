@@ -376,8 +376,8 @@ class Ros2Plot(RosPlotDataHandler):
                 if not self._graph_config.pause:
                     self.update_graph_config()
                 
-                # if self._effects["zoom_selector"] in self._scene.effects:
-                    # self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
+                if self._effects["zoom_selector"] in self._scene.effects:
+                    self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
 
                 if self._effects["inspector"] in self._scene.effects:
                     self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
