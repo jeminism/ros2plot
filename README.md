@@ -4,6 +4,11 @@
 
 A terminal-based, real-time plotting tool for ROS2 topics. Ros2Plot automatically introspects ROS2 message types to extract numeric fields (int, float, bool) and plots them as time series. It uses asciimatics for the UI and braille characters for high-definition plots, supporting custom x-axes and interactive controls.
 
+## Demo
+Here's a quick demo showcasing key features of runtime subscription, Plot value inspection & Plot Display region resizing.
+
+<video src="./doc/demo.mp4" controls width="600"></video>
+
 ## Table of Contents
 - [Features](#features)
 - [Installation](#installation)
