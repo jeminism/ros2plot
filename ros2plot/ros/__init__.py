@@ -1,4 +1,4 @@
 
-from ros.multisub import MultiSubscriber
+from .multisub import MultiSubscriber
 
 __all__ = ["MultiSubscriber"]
