@@ -27,6 +27,9 @@ Here's a quick demo showcasing key features of runtime subscription, Plot value 
 ### Prerequisites
 - ROS2 (e.g., Jazzy or later) installed and sourced.
 - Python 3.8+ with pip.
+- For colcon compilation, ensure environment has:
+    - setuptools
+    - colcon-common-extensions
 
 ### Dependencies
 - asciimatics
@@ -49,13 +52,13 @@ ros2plot
 ```
 
 ### Option 2: ROS2 Package Installation
+If necessary, source your python venv before proceeding.<br>
+PSA: If using a python venv, it must be _outside_ your workspace folder.
+
 For integration with ROS2 workspaces:
 ```bash
 cd <your_ws>
-python3 -m venv venv
-source venv/bin/activate  # Adjust for Windows if needed
 pip install -r src/ros2plot/requirements.txt
-export PYTHON_EXECUTABLE=$(which python3)
 colcon build --symlink-install --packages-select ros2plot
 source install/setup.bash
 ros2 run ros2plot ros2plot
