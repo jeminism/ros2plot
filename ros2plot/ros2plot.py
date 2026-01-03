@@ -74,7 +74,7 @@ class Ros2Plot(RosPlotDataHandler):
         avail_mib = vm.available / (1024 * 1024)
 
 
-        self.update_info_message(f'rss: {rss_mib}, avail: {avail_mib}, % {(rss_mib/avail_mib) * 100.0:.2f}, data size: {len(next(iter(self.data.values())).data)}')
+        self.update_info_message(f'rss: {rss_mib}, avail: {avail_mib}, % {(rss_mib/avail_mib) * 100.0:.2f}, data size: {len(next(iter(self.data.values())).data) if len(self.data) != 0 else 0}')
         #return rss_mib, vms_mib
     
     def set_screen(self, screen):
@@ -168,7 +168,7 @@ class Ros2Plot(RosPlotDataHandler):
             if not plot_data.visible:
                 continue
             valid = True
-            t_min, t_max = min_max(plot_data.data)
+            t_min, t_max = min_max(plot_data.data.values())
             if t_min < res_min:
                 res_min = t_min
             if t_max > res_max:
@@ -194,7 +194,7 @@ class Ros2Plot(RosPlotDataHandler):
                     self._graph_config.x_min_value = first_time_data if first_time_data != None else self._start_time
                     self._graph_config.x_max_value = self.get_ros_time()
                 else:
-                    self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data)
+                    self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data.values())
             else:
                 self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
             
