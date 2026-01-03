@@ -3,6 +3,7 @@ from rclpy.node import Node
 from . import colour_palette as COLOURS
 from .memory_bounded_deque import MemoryBoundedDeque
 
+import threading
 import attrs
 
 TIMESTAMP_KEY="/callback_timestamp"
@@ -30,7 +31,10 @@ class PlotData:
 
 class RosPlotDataHandler:
     def __init__(self):
+        self._queue = Queue()
         self._data = {} # dictionary to store [field : PlotData] pairs
+        #individual locks inside each MemoryBoundedDeque is insufficient, as we cannot guarantee that all deques are updated before each draw, resulting in mismatch length error during plotting
+        self._lock = threading.Lock() # solution: an overall lock is needed to guard data update and draw cycle
 
     @property
     def data(self):
@@ -42,18 +46,19 @@ class RosPlotDataHandler:
     def _add_to_data(self, key, value=None):
         if key not in self._data:
             self._data[key] = PlotData()
-            self._data[key].data.set_configs(max_fraction=0.1, trim_fraction=0.05)
+            self._data[key].data.set_configs(max_fraction=0.02, trim_fraction=0.05)
         if value != None:
             self._data[key].data.append(value)
     
     def get_ros_data_handler(self, topic_name):
         # dynamically generate data field handlers. this is to be passed into the anysub object so that it will dynamically append to the fields in _data on callback
         def ros_handler(node: Node, update_data: dict):
-            v = None
-            for key, value in update_data.items():
-                self._add_to_data(topic_name + key, value)
-                v=value
-            self._add_to_data(topic_name+TIMESTAMP_KEY, node.get_time() if v!=None else None)
+            with self._lock:
+                v = None
+                for key, value in update_data.items():
+                    self._add_to_data(topic_name + key, value)
+                    v=value
+                self._add_to_data(topic_name+TIMESTAMP_KEY, node.get_time() if v!=None else None)
 
         return ros_handler
     

@@ -29,8 +29,8 @@ class Plot(GraphEffect):
         if self._plt.x_key not in self._db:
             raise ValueError(f"Unable to plot graph with X-Axis data {self._plt.x_key} but this key does not exist in the DB!")
 
-        y_data = self._plt.data
-        x_data = self.lookup_data(self._plt.x_key)
+        y_data = self._plt.data.values()
+        x_data = self.lookup_data(self._plt.x_key).values()
 
         if len(x_data) == 0:
             return

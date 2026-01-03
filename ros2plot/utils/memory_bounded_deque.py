@@ -1,5 +1,7 @@
 
 from collections import deque
+
+import threading
 import psutil
 
 class MemoryBoundedDeque:
@@ -8,21 +10,33 @@ class MemoryBoundedDeque:
         self._max_fraction = max_fraction
         self._trim_fraction = trim_fraction
         self._proc = psutil.Process()
+        self._lock = threading.Lock()
     
+    # return snapshot of deque values as a list
+    def values(self):
+        with self._lock:
+            return list(self._data)
+
+    def append(self, item):
+        with self._lock:
+            self._data.append(item)
+            self._maybe_trim()
+
     def set_configs(self, max_fraction=None, trim_fraction=None):
         if max_fraction != None:
             self._max_fraction = max_fraction
         if trim_fraction != None:
             self._trim_fraction = trim_fraction
 
-    def append(self, item):
-        self._data.append(item)
-        self._maybe_trim()
-    
     def front(self):
         if len(self._data) == 0:
             return None
         return self._data[0]
+
+    def back(self):
+        if len(self._data) == 0:
+            return None
+        return self._data[-1]
     
     def should_trim(self):
         # return TRUE if pruning should be done to keep within memory
@@ -39,7 +53,7 @@ class MemoryBoundedDeque:
 
         # default to making use of the trim fraction to trim a proportional chunk
         if trim_amount == None:
-            trim_amound = int(len(self._data) * self._trim_fraction)
+            trim_amount = int(len(self._data) * self._trim_fraction)
 
         # pop according to the trim amount.
         trim = max(1, trim_amount)
@@ -51,7 +65,7 @@ class MemoryBoundedDeque:
         if len(self._data) == 0:
             return
         
-        if (self.should_trim()):
+        if self.should_trim():
             self.trim()
 
     def __len__(self):

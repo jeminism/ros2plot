@@ -180,7 +180,7 @@ class GraphInspector(GraphEffect):
             if x_key not in self._plot_data:
                 continue
 
-            self.print_values_at_x(plot.data, self._plot_data[x_key].data, plot.colour)
+            self.print_values_at_x(plot.data.values(), self._plot_data[x_key].data.values(), plot.colour)
 
             # indexes = self.get_indexes_matching_x(self._x_value, self._plot_data[x_key].data)
             # for index in indexes:
@@ -243,22 +243,22 @@ class GraphInspector(GraphEffect):
         best = None
         found = False
 
-        for x, y in zip(x_data, y_data):
-            x_pix = get_mapped_value(x, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+        for x_val, y_val in zip(x_data, y_data):
+            x_pix = get_mapped_value(x_val, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
             y_pix = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
             if x_pix < 0 or x_pix >= self._cfg.width or y_pix < 0 or y_pix > self._cfg.height:
                 continue
 
-            if x == ref_x_index:
-                self.e_print(f"⮾ {y}", x_pix, y_pix, colour)
+            if x_pix == ref_x_pix:
+                self.e_print(f"⮾ {y_val}", x_pix, y_pix, colour)
                 found = True
 
             if found:
                 continue
-            tmp = abs(self._x_value - x)
+            tmp = abs(self._x_value - x_val)
             if tmp < err:
                 err = tmp
-                best = (y, x_pix, y_pix)
+                best = (y_val, x_pix, y_pix)
 
         if not found and best != None:
             self.e_print(f"⮾ {best[0]}", best[1], best[2], colour)

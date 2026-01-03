@@ -74,7 +74,7 @@ class Ros2Plot(RosPlotDataHandler):
         avail_mib = vm.available / (1024 * 1024)
 
 
-        self.update_info_message(f'rss: {rss_mib}, vms: {vms_mib}, max system memory: {max_mib}, avail: {avail_mib}, % {(rss_mib/avail_mib) * 100.0:.2f}')
+        self.update_info_message(f'rss: {rss_mib}, avail: {avail_mib}, % {(rss_mib/avail_mib) * 100.0:.2f}, data size: {len(next(iter(self.data.values())).data)}')
         #return rss_mib, vms_mib
     
     def set_screen(self, screen):
@@ -414,7 +414,9 @@ class Ros2Plot(RosPlotDataHandler):
                 if self._effects["inspector"] in self._scene.effects:
                     self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
 
-                self._screen.draw_next_frame()
+                with self._lock:
+                    self._screen.draw_next_frame()
+
                 # self._handle_event()
                 event = self._screen.get_event()
                 if not (isinstance(event, KeyboardEvent) or isinstance(event, MouseEvent)):
