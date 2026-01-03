@@ -60,14 +60,18 @@ class Plot(GraphEffect):
         grid = Grid(width, height)
         prior_x = -1
         prior_y = -1
-        last = -1
-        for i in range(n_vals):
-            y_index = get_mapped_value(y_data[i], self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
-            x_index = get_mapped_value(x_data[i], self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
+        last = None
+        # for i in range(n_vals):
+        #     y_index = get_mapped_value(y_data[i], self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
+        #     x_index = get_mapped_value(x_data[i], self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
+        for x_val, y_val in zip(x_data, y_data):
+            y_index = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
+            x_index = get_mapped_value(x_val, self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
+
             if x_index > width-1 or x_index < 0 or y_index > height-1 or y_index < 0:
                 continue
 
-            if self._plt.interpolate and last != -1:
+            if self._plt.interpolate and last != None:
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
                     if pt[0] > width-1 or pt[0] < 0 or pt[1] > height-1 or pt[1] < 0:
                         continue
@@ -76,7 +80,7 @@ class Plot(GraphEffect):
                 grid.set_value(grid.to_index(x_index, y_index), True)
             prior_x = x_index
             prior_y = y_index
-            last = i
+            last = (x_val, y_val)
         
         # parse chars
         for i in range(self._cfg.width):
@@ -103,7 +107,7 @@ class Plot(GraphEffect):
                         self.e_print("*", i, j, self._plt.colour)
 
         # print last value
-        if last != -1:
-            x_latest_location = min(get_mapped_value(x_data[last], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0), self._cfg.width)
-            y_latest_location = get_mapped_value(y_data[last], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
-            self.e_print(f"{y_data[last]:3.2f}", x_latest_location+1, y_latest_location, self._plt.colour)
+        if last != None:
+            x_latest_location = min(get_mapped_value(last[0], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0), self._cfg.width)
+            y_latest_location = get_mapped_value(last[1], self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+            self.e_print(f"{last[1]:3.2f}", x_latest_location+1, y_latest_location, self._plt.colour)

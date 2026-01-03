@@ -1,6 +1,7 @@
 
 from rclpy.node import Node
 from . import colour_palette as COLOURS
+from .memory_bounded_deque import MemoryBoundedDeque
 
 import attrs
 
@@ -20,7 +21,7 @@ class GraphConfigs:
 
 @attrs.define
 class PlotData:
-    data: list = attrs.field(factory=list)
+    data: MemoryBoundedDeque = attrs.field(factory=MemoryBoundedDeque) #bound to 1% available memory
     x_key: str = attrs.field(default="")
     visible: bool = attrs.field(default=False)
     interpolate: bool = attrs.field(default=True)
@@ -41,6 +42,7 @@ class RosPlotDataHandler:
     def _add_to_data(self, key, value=None):
         if key not in self._data:
             self._data[key] = PlotData()
+            self._data[key].data.set_configs(max_fraction=0.1, trim_fraction=0.05)
         if value != None:
             self._data[key].data.append(value)
     

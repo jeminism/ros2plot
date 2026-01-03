@@ -17,7 +17,7 @@ class MemoryBoundedDeque:
 
     def append(self, item):
         self._data.append(item)
-        # self._maybe_trim()
+        self._maybe_trim()
     
     def front(self):
         if len(self._data) == 0:

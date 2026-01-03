@@ -14,6 +14,8 @@ from .ros import MultiSubscriber
 
 import time
 import math
+import psutil
+import os
 
 
 class Ros2Plot(RosPlotDataHandler):
@@ -45,6 +47,35 @@ class Ros2Plot(RosPlotDataHandler):
         # self.update_tooltip(self.tooltip())
         self.update_graph_config()
         self.update_info_message("Ros2Plot Initialized!")
+
+    def get_current_memory_usage(self):
+        # Get the Process ID of the current Python script
+        pid = os.getpid()
+        process = psutil.Process(pid)
+
+        # Get memory information
+        # memory_info() provides a basic set of memory stats
+        mem_info = process.memory_info()
+
+        # The Resident Set Size (rss) is the non-swapped physical memory used
+        # The Virtual Memory Size (vms) is the total virtual memory used
+        rss_bytes = mem_info.rss
+        vms_bytes = mem_info.vms
+
+        # Convert bytes to megabytes (MiB) for easier reading
+        # 1 MiB = 1024 * 1024 bytes
+        rss_mib = rss_bytes / (1024 * 1024)
+        vms_mib = vms_bytes / (1024 * 1024)
+
+        vm = psutil.virtual_memory()
+
+        # e.g. never consume more than 30% of currently available memory
+        max_mib = vm.total / (1024 * 1024)
+        avail_mib = vm.available / (1024 * 1024)
+
+
+        self.update_info_message(f'rss: {rss_mib}, vms: {vms_mib}, max system memory: {max_mib}, avail: {avail_mib}, % {(rss_mib/avail_mib) * 100.0:.2f}')
+        #return rss_mib, vms_mib
     
     def set_screen(self, screen):
         readd = []
@@ -159,8 +190,8 @@ class Ros2Plot(RosPlotDataHandler):
                 self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
                 if self._x_key == None:
                     first_field_key = next(iter(self.data.keys()))
-                    first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data
-                    self._graph_config.x_min_value = first_time_data[0] if len(first_time_data) > 0 else self._start_time
+                    first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data.front()
+                    self._graph_config.x_min_value = first_time_data if first_time_data != None else self._start_time
                     self._graph_config.x_max_value = self.get_ros_time()
                 else:
                     self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data)
@@ -372,6 +403,7 @@ class Ros2Plot(RosPlotDataHandler):
 
     def run(self, shutdown):
         while not shutdown:
+            self.get_current_memory_usage()
             try:
                 if not self._graph_config.pause:
                     self.update_graph_config()
