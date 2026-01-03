@@ -14,8 +14,6 @@ from .ros import MultiSubscriber
 
 import time
 import math
-import psutil
-import os
 
 
 class Ros2Plot(RosPlotDataHandler):
@@ -47,35 +45,6 @@ class Ros2Plot(RosPlotDataHandler):
         # self.update_tooltip(self.tooltip())
         self.update_graph_config()
         self.update_info_message("Ros2Plot Initialized!")
-
-    def get_current_memory_usage(self):
-        # Get the Process ID of the current Python script
-        pid = os.getpid()
-        process = psutil.Process(pid)
-
-        # Get memory information
-        # memory_info() provides a basic set of memory stats
-        mem_info = process.memory_info()
-
-        # The Resident Set Size (rss) is the non-swapped physical memory used
-        # The Virtual Memory Size (vms) is the total virtual memory used
-        rss_bytes = mem_info.rss
-        vms_bytes = mem_info.vms
-
-        # Convert bytes to megabytes (MiB) for easier reading
-        # 1 MiB = 1024 * 1024 bytes
-        rss_mib = rss_bytes / (1024 * 1024)
-        vms_mib = vms_bytes / (1024 * 1024)
-
-        vm = psutil.virtual_memory()
-
-        # e.g. never consume more than 30% of currently available memory
-        max_mib = vm.total / (1024 * 1024)
-        avail_mib = vm.available / (1024 * 1024)
-
-
-        self.update_info_message(f'rss: {rss_mib}, avail: {avail_mib}, % {(rss_mib/avail_mib) * 100.0:.2f}, data size: {len(next(iter(self.data.values())).data) if len(self.data) != 0 else 0}')
-        #return rss_mib, vms_mib
     
     def set_screen(self, screen):
         readd = []
@@ -406,7 +375,6 @@ class Ros2Plot(RosPlotDataHandler):
 
     def run(self, shutdown):
         while not shutdown:
-            self.get_current_memory_usage()
             self._process_data_queue()
             try:
                 if not self._graph_config.pause:

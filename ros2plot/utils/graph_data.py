@@ -34,7 +34,8 @@ class RosPlotDataHandler:
     def __init__(self):
         self._queue = queue.Queue() # queue to store data updates, to avoid lock overheads involved when updating data from each callback
         self._data = {} # dictionary to store [field : PlotData] pairs
-        #individual locks inside each MemoryBoundedDeque is insufficient, as we cannot guarantee that all deques are updated before each draw, resulting in mismatch length error during plotting
+        # individual locks inside each MemoryBoundedDeque is insufficient, as we cannot guarantee that all deques are updated before each draw, 
+        # resulting in mismatch length error during plotting
         self._lock = threading.Lock() # solution: an overall lock is needed to guard data update and draw cycle
 
     @property

@@ -10,6 +10,7 @@ class MemoryBoundedDeque:
         self._max_fraction = max_fraction
         self._trim_fraction = trim_fraction
         self._proc = psutil.Process()
+        # Internal locks to ensure value retrieval with values() and append() operations dont clash
         self._lock = threading.Lock()
     
     # return snapshot of deque values as a list

@@ -61,9 +61,6 @@ class Plot(GraphEffect):
         prior_x = -1
         prior_y = -1
         last = None
-        # for i in range(n_vals):
-        #     y_index = get_mapped_value(y_data[i], self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
-        #     x_index = get_mapped_value(x_data[i], self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
         for x_val, y_val in zip(x_data, y_data):
             y_index = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
             x_index = get_mapped_value(x_val, self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)

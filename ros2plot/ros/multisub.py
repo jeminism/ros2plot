@@ -10,9 +10,6 @@ IGNORE_FIELDS = ["/header"] #ignore first, integrate with timestamp later
 
 class IntrospectiveSubscriber():
     def __init__(self, node: Node, topic_name, topic_type, data_handler: Callable[[Node, Dict[str, Any]], None]):
-        # self._introspector = TopicIntrospector(whitelist)
-        # self._introspector.introspect(topic_type(), "", no_data=True) #just initialize the keys first
-
         self._data_handler = data_handler
 
         self._node = node
@@ -21,13 +18,8 @@ class IntrospectiveSubscriber():
                                         topic_name,
                                         self.listener_callback,
                                         10)
-        # #initialize keys
-        # d = {}
-        # self.introspect(topic_type(), "", d, no_data=True)                                
-        # self._data_handler(self._node, d)
 
     def listener_callback(self, msg):
-        # self._graph_data.x_values.append(self.get_clock().now().nanoseconds - self._first_time)
         data = {}
         self.introspect(msg, "", data)    
         self._data_handler(self._node, data)
