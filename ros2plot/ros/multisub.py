@@ -21,10 +21,10 @@ class IntrospectiveSubscriber():
                                         topic_name,
                                         self.listener_callback,
                                         10)
-        #initialize keys
-        d = {}
-        self.introspect(topic_type(), "", d, no_data=True)                                
-        self._data_handler(self._node, d)
+        # #initialize keys
+        # d = {}
+        # self.introspect(topic_type(), "", d, no_data=True)                                
+        # self._data_handler(self._node, d)
 
     def listener_callback(self, msg):
         # self._graph_data.x_values.append(self.get_clock().now().nanoseconds - self._first_time)
@@ -63,19 +63,21 @@ class MultiSubscriber(Node):
         if topic_name in self._subscribers:
             if self._subscribers[topic_name] != None:
                 self._info_msg = f"There is already an existing subscriber for topic '{topic_name}'"
-                return True
+                return None
 
         try:
             tname, ttype = self.validate_topic(topic_name, topic_type)
             self._subscribers[topic_name] = IntrospectiveSubscriber(self, tname, ttype, handler_fn)
             self._info_msg = f"Successfully added subscriber to topic '{tname}' of type '{ttype}'"
-            return True
+            d = {}
+            self._subscribers[topic_name].introspect(ttype(), "", d, no_data=True)
+            return d
         except Exception as e:
             self._info_msg = f"[Subscription Failure]: {e}"
-            return False
+            return None
 
         self._info_msg = f"Unknown error when creating subscriber to topic '{topic_name}'"
-        return False
+        return None
 
     def remove_subscriber(self, topic_name):
         if topic_name in self._subscribers:

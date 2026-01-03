@@ -293,9 +293,12 @@ class Ros2Plot(RosPlotDataHandler):
 
     def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
         topic = topic
-        ok = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
+        msg_fields = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
         self.update_info_message(self._multi_subscriber.get_info_msg())
-        if ok:
+        # self._process_data_queue()
+        if msg_fields != None:
+            # initialize the plot data with the returned msg_fields from the multi_subscriber using the generic update method
+            self._process_topic_update(topic, None, msg_fields)
             # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
             self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
             if field_filter != None:
