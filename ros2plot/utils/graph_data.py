@@ -3,6 +3,7 @@ from rclpy.node import Node
 from . import colour_palette as COLOURS
 from .memory_bounded_deque import MemoryBoundedDeque
 
+import queue
 import threading
 import attrs
 
@@ -31,7 +32,7 @@ class PlotData:
 
 class RosPlotDataHandler:
     def __init__(self):
-        self._queue = Queue()
+        self._queue = queue.Queue() # queue to store data updates, to avoid lock overheads involved when updating data from each callback
         self._data = {} # dictionary to store [field : PlotData] pairs
         #individual locks inside each MemoryBoundedDeque is insufficient, as we cannot guarantee that all deques are updated before each draw, resulting in mismatch length error during plotting
         self._lock = threading.Lock() # solution: an overall lock is needed to guard data update and draw cycle
@@ -42,6 +43,17 @@ class RosPlotDataHandler:
     
     def timestamp_key_from_field(self, field_name):
         return field_name.split("/")[0]+TIMESTAMP_KEY
+    
+    def get_plot(self, name:str):
+        if name not in self._data:
+            return None
+        return self._data[name]
+
+    def get_ros_data_handler(self, topic_name):
+        # dynamically generate data field handlers. this is to be passed into the anysub object so that it will dynamically append to the fields in _data on callback
+        def ros_handler(node: Node, update_data: dict):
+            self._queue.put((topic_name, node.get_time(), update_data)) #store tuple of the topic name and the latest update data
+        return ros_handler
 
     def _add_to_data(self, key, value=None):
         if key not in self._data:
@@ -50,22 +62,21 @@ class RosPlotDataHandler:
         if value != None:
             self._data[key].data.append(value)
     
-    def get_ros_data_handler(self, topic_name):
-        # dynamically generate data field handlers. this is to be passed into the anysub object so that it will dynamically append to the fields in _data on callback
-        def ros_handler(node: Node, update_data: dict):
-            with self._lock:
-                v = None
-                for key, value in update_data.items():
-                    self._add_to_data(topic_name + key, value)
-                    v=value
-                self._add_to_data(topic_name+TIMESTAMP_KEY, node.get_time() if v!=None else None)
 
-        return ros_handler
+    def _process_topic_update(self, topic_name, timestamp, update_data):
+        v = None
+        for key, value in update_data.items():
+            self._add_to_data(topic_name + key, value)
+            v=value
+        self._add_to_data(topic_name+TIMESTAMP_KEY, timestamp if v!=None else None)
+
     
-    def get_plot(self, name:str):
-        if name not in self._data:
-            return None
-        return self._data[name]
+    def _process_data_queue(self):
+        with self._lock:
+            while not self._queue.empty():
+                topic_name, timestamp, update_data = self._queue.get()
+                self._process_topic_update(topic_name, timestamp, update_data)
+
     
         
     

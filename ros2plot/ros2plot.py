@@ -404,6 +404,7 @@ class Ros2Plot(RosPlotDataHandler):
     def run(self, shutdown):
         while not shutdown:
             self.get_current_memory_usage()
+            self._process_data_queue()
             try:
                 if not self._graph_config.pause:
                     self.update_graph_config()
