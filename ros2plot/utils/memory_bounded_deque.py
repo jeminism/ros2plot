@@ -65,8 +65,13 @@ class MemoryBoundedDeque:
         if len(self._data) == 0:
             return
         
+        ### WARNING: An issue with this implementation is that rss does not reduce even if the deque is popped. 
+        ### Hence, trimming any amount MORE THAN ONE will result in the deque SHRINKING ratehr than maintaining size.
+        ### should_trim() COULD be improved to take conditions using high-low threshold around available memory
+        ###     - this would make it more robust to handle cases where available memory drastically reduces suddenly, causing rss ~= available
+        ### But for now, maintaining a list size seems to be the expected and intuitive behavior, and should be sufficient in mitigating ~99% of actual OOM cases
         if self.should_trim():
-            self.trim()
+            self.trim(trim_amount=1)
 
     def __len__(self):
         return len(self._data)
