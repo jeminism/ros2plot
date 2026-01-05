@@ -104,7 +104,7 @@ class Ros2Plot(RosPlotDataHandler):
                 continue
 
             if field not in self._effects:
-                self.initialize_effect(field, Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets))
+                self.initialize_effect(field, Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets, debug_fn=self.update_info_message))
             else:
                 self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets)
 
