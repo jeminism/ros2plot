@@ -233,11 +233,16 @@ class Plot(GraphEffect):
         #                 self.e_print("*", i, j, self._plt.colour)
 
         # self.debug_print(f"plotting {len(changed_grid_cells)} grid cells")
+        done_ledger = set() # set to store done cells so we ignore overlaps
         for i,j in self._plot_cell_buffer:
             if self._plt.high_def:
                 # get root cell in screen coordinates first, then find the braille character corresponding to this screen cell
                 x = i//2
                 y = j//4
+                
+                if (x, y) in done_ledger:
+                    continue
+
                 bx = x*2
                 by = y*4
                 braille_cells = []
@@ -252,11 +257,15 @@ class Plot(GraphEffect):
                     if grid.at(grid.to_index(bx + dx, by + dy)):
                         braille_cells.append(dot_num)
 
-                if len(braille_cells) > 0:
-                    self.e_print(braille_char(braille_cells), x, y, self._plt.colour)
+                # if len(braille_cells) > 0:
+                done_ledger.add((x, y))
+                self.e_print(braille_char(braille_cells), x, y, self._plt.colour)
             else:
-                if grid.at(grid.to_index(i, j)):
-                    self.e_print("*", i, j, self._plt.colour)
+                if (i, j) in done_ledger:
+                    continue
+                # if grid.at(grid.to_index(i, j)):
+                done_ledger.add((i,j))
+                self.e_print("*", i, j, self._plt.colour)
 
 
 '''
