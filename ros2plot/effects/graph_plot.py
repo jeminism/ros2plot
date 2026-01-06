@@ -36,6 +36,8 @@ class Plot(GraphEffect):
         self._scanline_resolution = None
         self._last_x_min = None
         self._last_x_max = None
+        self._last_y_min = None
+        self._last_y_max = None
 
         self._counts = [0,0,0]
     
@@ -86,16 +88,20 @@ class Plot(GraphEffect):
         if self._cfg.y_min_value == self._cfg.y_max_value:
             raise ValueError("Y axis bound invalid! Min value == max value")
 
-        start_time = time.time()
+        # start_time = time.time()
 
         redraw_all = False
-        if self.scanline_regeneration_needed() or self.scanline_shift_needed():
-            self._counts[0] += 1
+        if self.x_bounds_changed() or self.scanline_shift_needed():
+            # self._counts[0] += 1
             self._scanlines.clear()
-            self._plot_cell_buffer.clear()
             self.generate_scanlines(y_data, x_data)
             self._last_data_index = data_size-1
             self._scanline_resolution = (self._cfg.x_max_value - self._cfg.x_min_value) / self.plot_width
+            self._plot_cell_buffer.clear()
+            redraw_all = True
+        elif self.y_bounds_changed():
+            # no need to clear scanlines here, but we need to regenerate the plot buffer
+            self._plot_cell_buffer.clear()
             redraw_all = True
         # elif self.scanline_shift_needed(): 
         #     self._counts[1] += 1
@@ -105,7 +111,7 @@ class Plot(GraphEffect):
         #     redraw_all = True
         
         if self._last_data_index < data_size-1:
-            self._counts[2] += 1
+            # self._counts[2] += 1
             self.generate_scanlines(y_data[self._last_data_index:], x_data[self._last_data_index:])
             self._last_data_index = data_size-1
         
@@ -113,11 +119,11 @@ class Plot(GraphEffect):
         self._last_x_min = self._cfg.x_min_value
         self._last_x_max = self._cfg.x_max_value
         self.update_grid(refresh_grid=redraw_all)
-        update_time = time.time() - start_time
+        # update_time = time.time() - start_time
 
         self.do_plot()
 
-        self.debug_print(f"{self._counts}, scanlines size: {len(self._scanlines)}, grid update time: {update_time}, end-end time: {time.time() - start_time}")
+        # self.debug_print(f"{self._counts}, scanlines size: {len(self._scanlines)}, grid update time: {update_time}, end-end time: {time.time() - start_time}")
     
     def generate_scanlines(self, y_data, x_data):
         width = self.plot_width
@@ -155,11 +161,13 @@ class Plot(GraphEffect):
 
     def scanline_shift_needed(self):
         # using the previous column resolution, check if a new column needs to be created. if so, then it is time to shift the existing scanlines left
-        return ((self._cfg.x_max_value - self._cfg.x_min_value) / self._scanline_resolution - self.plot_width) > 0.5
-                
-            
-    def scanline_regeneration_needed(self):
+        return ((self._cfg.x_max_value - self._cfg.x_min_value) / self._scanline_resolution - self.plot_width) > 0.9
+                           
+    def x_bounds_changed(self):
         return self._last_x_min != self._cfg.x_min_value or self._last_x_max > self._cfg.x_max_value
+    
+    def y_bounds_changed(self):
+        return self._last_y_min != self._cfg.y_min_value or self._last_y_max != self._cfg.y_max_value
     
     def update_grid(self, refresh_grid:bool=True):
         if refresh_grid:
