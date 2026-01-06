@@ -275,6 +275,10 @@ class Plot(GraphEffect):
                 done_ledger.add((i,j))
                 self.e_print("*", i, j, self._plt.colour)
 
+        last_x_index = self._scanlines[-1].column_index//2 if self._plt.high_def else self._scanlines[-1].column_index
+        last_y_index = get_mapped_value(self._scanlines[-1].last, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+        if last_y_index < self._cfg.height+1 and last_y_index >= 0:
+            self.e_print(f"{self._scanlines[-1].last:3.2f}", last_x_index+1, last_y_index, self._plt.colour)
 
 '''
     def do_plot(self, y_data, x_data):
