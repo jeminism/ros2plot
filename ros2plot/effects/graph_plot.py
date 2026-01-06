@@ -6,6 +6,7 @@ from asciimatics.screen import Screen
 
 import math
 import attrs
+import time
 
 # define a scanline run as a compressed representation of a continuous segment of raw data which occupies the same column
 @attrs.define
@@ -26,7 +27,8 @@ class Plot(GraphEffect):
         self._debug_fn = debug_fn
 
         self._scanlines = [] # store parsed scanlines
-        self._grid = None # stored buffer for screen refresh
+        self._grid = None # ground truth buffer for screen refresh
+        self._plot_cell_buffer = [] # buffer of grid cells which need to be re-rendered every frame
 
         # variables needed for minimal scanline updates at each timestep
         self._last_data_index = None
@@ -84,33 +86,38 @@ class Plot(GraphEffect):
         if self._cfg.y_min_value == self._cfg.y_max_value:
             raise ValueError("Y axis bound invalid! Min value == max value")
 
+        start_time = time.time()
 
         redraw_all = False
-        if self.scanline_regeneration_needed():
+        if self.scanline_regeneration_needed() or self.scanline_shift_needed():
             self._counts[0] += 1
             self._scanlines.clear()
+            self._plot_cell_buffer.clear()
             self.generate_scanlines(y_data, x_data)
             self._last_data_index = data_size-1
             self._scanline_resolution = (self._cfg.x_max_value - self._cfg.x_min_value) / self.plot_width
             redraw_all = True
-        elif self.scanline_shift_needed(): 
-            self._counts[1] += 1
-            # optimization for the case where x_min is static and only x_max grows. 
-            # we approximate the compression of existing data by simply shifting scanlines to the left when a new column should be added (using the previous resolution).
-            self.shift_scanlines()
-            redraw_all = True
+        # elif self.scanline_shift_needed(): 
+        #     self._counts[1] += 1
+        #     # optimization for the case where x_min is static and only x_max grows. 
+        #     # we approximate the compression of existing data by simply shifting scanlines to the left when a new column should be added (using the previous resolution).
+        #     self.shift_scanlines()
+        #     redraw_all = True
         
         if self._last_data_index < data_size-1:
             self._counts[2] += 1
             self.generate_scanlines(y_data[self._last_data_index:], x_data[self._last_data_index:])
             self._last_data_index = data_size-1
         
-        self.debug_print(f"{self._counts}, scanlines size: {len(self._scanlines)}")
 
         self._last_x_min = self._cfg.x_min_value
         self._last_x_max = self._cfg.x_max_value
         self.update_grid(refresh_grid=redraw_all)
+        update_time = time.time() - start_time
+
         self.do_plot()
+
+        self.debug_print(f"{self._counts}, scanlines size: {len(self._scanlines)}, grid update time: {update_time}, end-end time: {time.time() - start_time}")
     
     def generate_scanlines(self, y_data, x_data):
         width = self.plot_width
@@ -141,6 +148,7 @@ class Plot(GraphEffect):
     
     def shift_scanlines(self):
         delta = math.ceil((self._cfg.x_max_value - self._cfg.x_min_value) / self._scanline_resolution - self.plot_width)
+        
         for scanline in self._scanlines:
             scanline.column_index = scanline.column_index-delta if scanline.column_index > delta else 0
 
@@ -179,6 +187,8 @@ class Plot(GraphEffect):
                     if pt[0] > width-1 or pt[0] < 0 or pt[1] > height-1 or pt[1] < 0:
                         continue
                     i = grid.to_index(pt[0], pt[1])
+                    if grid.at(i) != True:
+                        self._plot_cell_buffer.append((pt[0], pt[1]))
                     grid.set_value(i, True)
             
             # draw line within column
@@ -186,6 +196,8 @@ class Plot(GraphEffect):
                 if pt[0] > width-1 or pt[0] < 0 or pt[1] > height-1 or pt[1] < 0:
                     continue
                 i = grid.to_index(pt[0], pt[1])
+                if grid.at(i) != True:
+                    self._plot_cell_buffer.append((pt[0], pt[1]))
                 grid.set_value(i, True)
 
             prior_x = x_index
@@ -197,54 +209,54 @@ class Plot(GraphEffect):
     
     def do_plot(self):
         grid = self._grid
-        for i in range(self._cfg.width):
-            for j in range(self._cfg.height):
-                if self._plt.high_def:
-                    b_x = i*2
-                    b_y = j*4
-                    braille_cells = []
+        # for i in range(self._cfg.width):
+        #     for j in range(self._cfg.height):
+        #         if self._plt.high_def:
+        #             b_x = i*2
+        #             b_y = j*4
+        #             braille_cells = []
 
-                    dot_offsets = [
-                        (0, 0), (0, 1), (0, 2),
-                        (1, 0), (1, 1), (1, 2),
-                        (0, 3), (1, 3),
-                    ]
+        #             dot_offsets = [
+        #                 (0, 0), (0, 1), (0, 2),
+        #                 (1, 0), (1, 1), (1, 2),
+        #                 (0, 3), (1, 3),
+        #             ]
 
-                    for dot_num, (dx, dy) in enumerate(dot_offsets, start=1):
-                        if grid.at(grid.to_index(b_x + dx, b_y + dy)):
-                            braille_cells.append(dot_num)
+        #             for dot_num, (dx, dy) in enumerate(dot_offsets, start=1):
+        #                 if grid.at(grid.to_index(b_x + dx, b_y + dy)):
+        #                     braille_cells.append(dot_num)
 
-                    if len(braille_cells) > 0:
-                        self.e_print(braille_char(braille_cells), i, j, self._plt.colour)
-                else:
-                    if grid.at(grid.to_index(i, j)):
-                        self.e_print("*", i, j, self._plt.colour)
+        #             if len(braille_cells) > 0:
+        #                 self.e_print(braille_char(braille_cells), i, j, self._plt.colour)
+        #         else:
+        #             if grid.at(grid.to_index(i, j)):
+        #                 self.e_print("*", i, j, self._plt.colour)
 
         # self.debug_print(f"plotting {len(changed_grid_cells)} grid cells")
-        # for i,j in changed_grid_cells:
-        #     if self._plt.high_def:
-        #         # get root cell in screen coordinates first, then find the braille character corresponding to this screen cell
-        #         x = i//2
-        #         y = j//4
-        #         bx = x*2
-        #         by = y*2
-        #         braille_cells = []
+        for i,j in self._plot_cell_buffer:
+            if self._plt.high_def:
+                # get root cell in screen coordinates first, then find the braille character corresponding to this screen cell
+                x = i//2
+                y = j//4
+                bx = x*2
+                by = y*4
+                braille_cells = []
 
-        #         dot_offsets = [
-        #             (0, 0), (0, 1), (0, 2),
-        #             (1, 0), (1, 1), (1, 2),
-        #             (0, 3), (1, 3),
-        #         ]
+                dot_offsets = [
+                    (0, 0), (0, 1), (0, 2),
+                    (1, 0), (1, 1), (1, 2),
+                    (0, 3), (1, 3),
+                ]
 
-        #         for dot_num, (dx, dy) in enumerate(dot_offsets, start=1):
-        #             if grid.at(grid.to_index(bx + dx, by + dy)):
-        #                 braille_cells.append(dot_num)
+                for dot_num, (dx, dy) in enumerate(dot_offsets, start=1):
+                    if grid.at(grid.to_index(bx + dx, by + dy)):
+                        braille_cells.append(dot_num)
 
-        #         if len(braille_cells) > 0:
-        #             self.e_print(braille_char(braille_cells), x, y, self._plt.colour)
-        #     else:
-        #         if grid.at(grid.to_index(i, j)):
-        #             self.e_print("*", i, j, self._plt.colour)
+                if len(braille_cells) > 0:
+                    self.e_print(braille_char(braille_cells), x, y, self._plt.colour)
+            else:
+                if grid.at(grid.to_index(i, j)):
+                    self.e_print("*", i, j, self._plt.colour)
 
 
 '''
