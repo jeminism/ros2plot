@@ -8,6 +8,10 @@
     * Implement MemoryBoundedDeque:
         * Guarantees automatic pruning of its own data if a memory limit is reached
         * Default memory limit 2% of available memory.
+    * Improved Plot rendering framerate:
+        * Implemented ScanLine approach to plot compression for fast rendering
+        * Implemented grid and plot-display buffers to optimize screen print calls
+        
 
 0.1.2
 ---
