@@ -4,6 +4,10 @@
 
 0.2.0
 ---
+* Performance:
+    * Implement MemoryBoundedDeque:
+        * Guarantees automatic pruning of its own data if a memory limit is reached
+        * Default memory limit 2% of available memory.
 
 0.1.2
 ---

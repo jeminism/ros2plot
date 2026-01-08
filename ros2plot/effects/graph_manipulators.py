@@ -180,16 +180,7 @@ class GraphInspector(GraphEffect):
             if x_key not in self._plot_data:
                 continue
 
-            # index = self.get_closest_index(self._x_value, self._plot_data[x_key].data)
-            # x_data = get_mapped_value(self._plot_data[x_key].data[index], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
-            indexes = self.get_indexes_matching_x(self._x_value, self._plot_data[x_key].data)
-            for index in indexes:
-                y_val = plot.data[index]
-                y_data = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
-                x_data = get_mapped_value(self._plot_data[x_key].data[index], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
-                if y_data < 0 or y_data >= self._cfg.height:
-                    continue
-                self.e_print(f"⮾ {y_val}", x_data, y_data, plot.colour)
+            self.print_values_at_x(plot.data.values(), self._plot_data[x_key].data.values(), plot.colour)
     
     def set_x_value(self, x_val=None):
         self._x_value = x_val if x_val != None else (self._cfg.x_max_value + self._cfg.x_min_value) / 2
@@ -200,40 +191,32 @@ class GraphInspector(GraphEffect):
     def tooltip(self):
         return f"← : Move Left | → : Move Right | CTRL+move : Move slower"
     
-    # def get_closest_index(self, val, data):
-    #     err = math.inf
-    #     res = -1
-    #     for i in range(len(data)):
-    #         tmp = abs(data[i] - val)
-    #         if tmp < err:
-    #             err = tmp
-    #             res = i
-    #         # if tmp > err:
-    #         #     break #break early, just do first match
-    #     return res
-
-    def get_indexes_matching_x(self, ref_x_value, data):
-        ref_x_index = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+    def print_values_at_x(self, y_data, x_data, colour=7):
+        ref_x_pix = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
         err = math.inf
-        best = -1
-        res = []
-        for i in range(len(data)):
-            x = get_mapped_value(data[i], self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
-            if x < 0 or x >= self._cfg.width:
-                continue
-            if x == ref_x_index:
-                res.append(i)
+        best = None
+        found = False
 
-            if len(res) > 0:
+        for x_val, y_val in zip(x_data, y_data):
+            x_pix = get_mapped_value(x_val, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+            y_pix = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+            if x_pix < 0 or x_pix >= self._cfg.width or y_pix < 0 or y_pix > self._cfg.height:
                 continue
-            tmp = abs(ref_x_value - data[i])
+
+            if x_pix == ref_x_pix:
+                self.e_print(f"⮾ {y_val}", x_pix, y_pix, colour)
+                found = True
+
+            if found:
+                continue
+            tmp = abs(self._x_value - x_val)
             if tmp < err:
                 err = tmp
-                best = i
+                best = (y_val, x_pix, y_pix)
 
-        if len(res) == 0 and best != -1:
-            res.append(best)
-        return res
+        if not found and best != None:
+            self.e_print(f"⮾ {best[0]}", best[1], best[2], colour)
+
     
     def scroll_up_x(self, step=100):
         d = (self._cfg.x_max_value - self._cfg.x_min_value) / step

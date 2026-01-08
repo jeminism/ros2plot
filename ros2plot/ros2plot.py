@@ -137,7 +137,7 @@ class Ros2Plot(RosPlotDataHandler):
             if not plot_data.visible:
                 continue
             valid = True
-            t_min, t_max = min_max(plot_data.data)
+            t_min, t_max = min_max(plot_data.data.values())
             if t_min < res_min:
                 res_min = t_min
             if t_max > res_max:
@@ -159,11 +159,11 @@ class Ros2Plot(RosPlotDataHandler):
                 self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
                 if self._x_key == None:
                     first_field_key = next(iter(self.data.keys()))
-                    first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data
-                    self._graph_config.x_min_value = first_time_data[0] if len(first_time_data) > 0 else self._start_time
+                    first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data.front()
+                    self._graph_config.x_min_value = first_time_data if first_time_data != None else self._start_time
                     self._graph_config.x_max_value = self.get_ros_time()
                 else:
-                    self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data)
+                    self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data.values())
             else:
                 self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
             
@@ -262,9 +262,12 @@ class Ros2Plot(RosPlotDataHandler):
 
     def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
         topic = topic
-        ok = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
+        msg_fields = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
         self.update_info_message(self._multi_subscriber.get_info_msg())
-        if ok:
+        # self._process_data_queue()
+        if msg_fields != None:
+            # initialize the plot data with the returned msg_fields from the multi_subscriber using the generic update method
+            self._process_topic_update(topic, None, msg_fields)
             # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
             self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
             if field_filter != None:
@@ -372,6 +375,7 @@ class Ros2Plot(RosPlotDataHandler):
 
     def run(self, shutdown):
         while not shutdown:
+            self._process_data_queue()
             try:
                 if not self._graph_config.pause:
                     self.update_graph_config()
@@ -382,7 +386,9 @@ class Ros2Plot(RosPlotDataHandler):
                 if self._effects["inspector"] in self._scene.effects:
                     self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
 
-                self._screen.draw_next_frame()
+                with self._lock:
+                    self._screen.draw_next_frame()
+
                 # self._handle_event()
                 event = self._screen.get_event()
                 if not (isinstance(event, KeyboardEvent) or isinstance(event, MouseEvent)):
