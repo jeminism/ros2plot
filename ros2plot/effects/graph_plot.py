@@ -70,8 +70,8 @@ class Plot(GraphEffect):
         if self._plt.x_key not in self._db:
             raise ValueError(f"Unable to plot graph with X-Axis data {self._plt.x_key} but this key does not exist in the DB!")
 
-        y_data = self._plt.data
-        x_data = self.lookup_data(self._plt.x_key)
+        y_data = self._plt.data.values()
+        x_data = self.lookup_data(self._plt.x_key).values()
         data_size = len(x_data)
         if data_size == 0:
             return
@@ -291,14 +291,15 @@ class Plot(GraphEffect):
         grid = Grid(width, height)
         prior_x = -1
         prior_y = -1
-        last = -1
-        for i in range(n_vals):
-            y_index = get_mapped_value(y_data[i], self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
-            x_index = get_mapped_value(x_data[i], self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
+        last = None
+        for x_val, y_val in zip(x_data, y_data):
+            y_index = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1) # flipped min and max because asciimatics y=0 is the topmost row of terminal.
+            x_index = get_mapped_value(x_val, self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
+
             if x_index > width-1 or x_index < 0 or y_index > height-1 or y_index < 0:
                 continue
 
-            if self._plt.interpolate and last != -1:
+            if self._plt.interpolate and last != None:
                 for pt in bresenham(x_index, y_index, prior_x, prior_y):
                     if pt[0] > width-1 or pt[0] < 0 or pt[1] > height-1 or pt[1] < 0:
                         continue
@@ -307,7 +308,7 @@ class Plot(GraphEffect):
                 grid.set_value(grid.to_index(x_index, y_index), True)
             prior_x = x_index
             prior_y = y_index
-            last = i
+            last = (x_val, y_val)
         
         # parse chars
         for i in range(self._cfg.width):
