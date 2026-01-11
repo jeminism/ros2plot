@@ -388,6 +388,7 @@ class Ros2Plot(RosPlotDataHandler):
 
                 with self._lock:
                     self._screen.draw_next_frame()
+                self._clear_latest_data()
 
                 # self._handle_event()
                 event = self._screen.get_event()

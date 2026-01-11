@@ -77,7 +77,11 @@ class RosPlotDataHandler:
             while not self._queue.empty():
                 topic_name, timestamp, update_data = self._queue.get()
                 self._process_topic_update(topic_name, timestamp, update_data)
-
+    
+    def _clear_latest_data(self):
+        with self._lock:
+            for key in self._data:
+                self._data[key].data.clear_latest()
     
         
     

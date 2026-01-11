@@ -7,11 +7,16 @@ import psutil
 class MemoryBoundedDeque:
     def __init__(self, max_fraction=0.2, trim_fraction=0.05):
         self._data = deque() #unbounded deque, length determined by memory usage
+        self._latest_data = [] #just stores new delta received since last reset_latest(). this is a convenience tool because deque index based access for new elements is expensive
         self._max_fraction = max_fraction
         self._trim_fraction = trim_fraction
         self._proc = psutil.Process()
         # Internal locks to ensure value retrieval with values() and append() operations dont clash
         self._lock = threading.Lock()
+
+    @property
+    def lock(self):
+        return self._lock
     
     # return snapshot of deque values as a list
     def values(self):
@@ -21,7 +26,19 @@ class MemoryBoundedDeque:
     def append(self, item):
         with self._lock:
             self._data.append(item)
+            self._latest_data.append(item)
             self._maybe_trim()
+
+    def iterate_latest(self, fn):
+        with self._lock: #not actually necessary, since list is thread-safe. but do it for style and semantic consistency
+            for e in self._latest_data:
+                fn(e)
+    
+    def latest(self):
+        return self._latest_data #returning straight reference is safe; list has built in thread safety
+    
+    def clear_latest(self):
+        self._latest_data.clear()
 
     def set_configs(self, max_fraction=None, trim_fraction=None):
         if max_fraction != None:
