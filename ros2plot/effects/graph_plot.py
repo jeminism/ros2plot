@@ -63,6 +63,8 @@ class Plot(GraphEffect):
         return self._db[key].data
     
     def _draw(self, frame_no):
+        start_time = time.time()
+
         if self._plt == None:
             # not setup yet, just quietly return as it may be due to application logic
             return
@@ -70,9 +72,10 @@ class Plot(GraphEffect):
         if self._plt.x_key not in self._db:
             raise ValueError(f"Unable to plot graph with X-Axis data {self._plt.x_key} but this key does not exist in the DB!")
 
-        y_data = self._plt.data.values()
-        x_data = self.lookup_data(self._plt.x_key).values()
+        y_data = self._plt.data
+        x_data = self.lookup_data(self._plt.x_key)
         data_size = len(x_data)
+        data_time = time.time() - start_time
         if data_size == 0:
             return
             
@@ -88,14 +91,17 @@ class Plot(GraphEffect):
         if self._cfg.y_min_value == self._cfg.y_max_value:
             raise ValueError("Y axis bound invalid! Min value == max value")
 
-        # start_time = time.time()
+        # data_time = time.time() - start_time
+        start_time = time.time()
+        generate_scanlines_time = 0
 
         redraw_all = False
         if self.x_bounds_changed() or self.scanline_shift_needed():
             # self._counts[0] += 1
             self._scanlines.clear()
-            self.generate_scanlines(y_data, x_data)
-            self._last_data_index = data_size-1
+            self.generate_scanlines(y_data.values(), x_data.values())
+            generate_scanlines_time = time.time()-start_time
+            # self._last_data_index = data_size-1
             self._scanline_resolution = (self._cfg.x_max_value - self._cfg.x_min_value) / self.plot_width
             self._plot_cell_buffer.clear()
             redraw_all = True
@@ -103,31 +109,33 @@ class Plot(GraphEffect):
             # no need to clear scanlines here, but we need to regenerate the plot buffer
             self._plot_cell_buffer.clear()
             redraw_all = True
-        # elif self.scanline_shift_needed(): 
-        #     self._counts[1] += 1
-        #     # optimization for the case where x_min is static and only x_max grows. 
-        #     # we approximate the compression of existing data by simply shifting scanlines to the left when a new column should be added (using the previous resolution).
-        #     self.shift_scanlines()
-        #     redraw_all = True
         
-        if self._last_data_index < data_size-1:
-            # self._counts[2] += 1
-            self.generate_scanlines(y_data[self._last_data_index:], x_data[self._last_data_index:])
-            self._last_data_index = data_size-1
+        
+        self.generate_scanlines(y_data.latest(), x_data.latest())
+
+        # if self._last_data_index < data_size-1:
+        #     # self._counts[2] += 1
+        #     self.generate_scanlines(y_data.latest(), x_data.latest())
+        #     self._last_data_index = data_size-1
         
 
         self._last_x_min = self._cfg.x_min_value
         self._last_x_max = self._cfg.x_max_value
-        self.update_grid(refresh_grid=redraw_all)
-        # update_time = time.time() - start_time
 
+        start_time = time.time()
+        self.update_grid(refresh_grid=redraw_all)
+        update_time = time.time() - start_time
+        
+        start_time = time.time()
         self.do_plot()
 
-        # self.debug_print(f"{self._counts}, scanlines size: {len(self._scanlines)}, grid update time: {update_time}, end-end time: {time.time() - start_time}")
+        # self.debug_print(f"scanlines size: {len(self._scanlines)}, data : {data_time:.5f}, update scanlines : {generate_scanlines_time:.5f}, grid update : {update_time:.5f}, end-end : {time.time() - start_time:.5f}")
     
-    def generate_scanlines(self, y_data, x_data):
+    def generate_scanlines(self, y_data, x_data, start_index=0):
         width = self.plot_width
-        for x, y in zip(x_data, y_data):
+        for i in range(start_index, len(x_data)):
+            x = x_data[i]
+            y = y_data[i]
             # get the x index. this will be the column index.
             x_index = get_mapped_value(x, self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
             if x_index > width-1 or x_index < 0:
@@ -219,37 +227,37 @@ class Plot(GraphEffect):
         grid = self._grid
         # self.debug_print(f"plotting {len(changed_grid_cells)} grid cells")
         done_ledger = set() # set to store done cells so we ignore overlaps
+
+        dot_offsets = [
+            (0, 0), (0, 1), (0, 2),
+            (1, 0), (1, 1), (1, 2),
+            (0, 3), (1, 3),
+        ]
+
         for i,j in self._plot_cell_buffer:
+
             if self._plt.high_def:
                 # get root cell in screen coordinates first, then find the braille character corresponding to this screen cell
                 x = i//2
                 y = j//4
-                
-                if (x, y) in done_ledger:
+                index = x + y*self.plot_width
+                if index in done_ledger:
                     continue
+                done_ledger.add(index)
 
                 bx = x*2
                 by = y*4
                 braille_cells = []
 
-                dot_offsets = [
-                    (0, 0), (0, 1), (0, 2),
-                    (1, 0), (1, 1), (1, 2),
-                    (0, 3), (1, 3),
-                ]
-
                 for dot_num, (dx, dy) in enumerate(dot_offsets, start=1):
                     if grid.at(grid.to_index(bx + dx, by + dy)):
                         braille_cells.append(dot_num)
-
-                # if len(braille_cells) > 0:
-                done_ledger.add((x, y))
                 self.e_print(braille_char(braille_cells), x, y, self._plt.colour)
             else:
-                if (i, j) in done_ledger:
+                index = i + j*self.plot_width
+                if index in done_ledger:
                     continue
-                # if grid.at(grid.to_index(i, j)):
-                done_ledger.add((i,j))
+                done_ledger.add(index)
                 self.e_print("*", i, j, self._plt.colour)
 
         last_x_index = self._scanlines[-1].column_index//2 if self._plt.high_def else self._scanlines[-1].column_index
