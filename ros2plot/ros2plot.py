@@ -106,7 +106,7 @@ class Ros2Plot(RosPlotDataHandler):
             if field not in self._effects:
                 self.initialize_effect(field, Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets, debug_fn=self.update_info_message))
             else:
-                self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets)
+                self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets, debug_fn=self.update_info_message)
 
             self.data[field].colour = COLOURS_LIST[self._plot_count%NUM_COLOURS]
             self.set_plot_x_axis_key(field, self._x_key)
@@ -377,8 +377,10 @@ class Ros2Plot(RosPlotDataHandler):
         while not shutdown:
             self._process_data_queue()
             try:
+                start_time = time.time()
                 if not self._graph_config.pause:
                     self.update_graph_config()
+                update_time = time.time() - start_time
                 
                 if self._effects["zoom_selector"] in self._scene.effects:
                     self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
@@ -386,15 +388,24 @@ class Ros2Plot(RosPlotDataHandler):
                 if self._effects["inspector"] in self._scene.effects:
                     self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
 
+                draw_start_time = time.time()
                 with self._lock:
                     self._screen.draw_next_frame()
+                draw_time = time.time() - draw_start_time
+                
+                clear_start_time = time.time()
                 self._clear_latest_data()
+                clear_time = time.time() - clear_start_time
+                
+                self.update_info_message(f"frame time = {time.time() - start_time:.5f}. graph cfg time: {update_time:.5f}. draw time: {draw_time:.5f}. clear time: {clear_time:.5f}.")
+
 
                 # self._handle_event()
                 event = self._screen.get_event()
                 if not (isinstance(event, KeyboardEvent) or isinstance(event, MouseEvent)):
                     continue
                 self._handle_event(event)
+
 
             except StopApplication:
                 shutdown = True
