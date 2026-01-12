@@ -137,7 +137,8 @@ class Ros2Plot(RosPlotDataHandler):
             if not plot_data.visible:
                 continue
             valid = True
-            t_min, t_max = min_max(plot_data.data.values())
+            t_min = plot_data.minimum
+            t_max = plot_data.maximum
             if t_min < res_min:
                 res_min = t_min
             if t_max > res_max:
@@ -163,7 +164,9 @@ class Ros2Plot(RosPlotDataHandler):
                     self._graph_config.x_min_value = first_time_data if first_time_data != None else self._start_time
                     self._graph_config.x_max_value = self.get_ros_time()
                 else:
-                    self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data.values())
+                    # self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data.values())
+                    self._graph_config.x_min_value = self.data[self._x_key].minimum
+                    self._graph_config.x_max_value = self.data[self._x_key].maximum
             else:
                 self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
             

@@ -6,6 +6,7 @@ from .memory_bounded_deque import MemoryBoundedDeque
 import queue
 import threading
 import attrs
+import math
 
 TIMESTAMP_KEY="/callback_timestamp"
 
@@ -29,6 +30,8 @@ class PlotData:
     interpolate: bool = attrs.field(default=True)
     high_def: bool = attrs.field(default=True)
     colour: int = attrs.field(default=COLOURS.DEFAULT)
+    minimum: int = attrs.field(default=math.inf)
+    maximum: int = attrs.field(default=-math.inf)
 
 class RosPlotDataHandler:
     def __init__(self):
@@ -62,6 +65,10 @@ class RosPlotDataHandler:
             self._data[key].data.set_configs(max_fraction=0.02, trim_fraction=0.05)
         if value != None:
             self._data[key].data.append(value)
+            if value < self._data[key].minimum:
+                self._data[key].minimum = value 
+            if value > self._data[key].maximum:
+                self._data[key].maximum = value 
     
 
     def _process_topic_update(self, topic_name, timestamp, update_data):
