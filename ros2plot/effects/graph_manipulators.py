@@ -159,6 +159,11 @@ class GraphInspector(GraphEffect):
         super().__init__(screen, cfg, offsets, redraw_on_pause=False)
         self._plot_data = plot_data
         self._x_value = initial_x_value
+        self._inspection_data = {} #dict of field name : [[GraphPoint] by column]
+        self._last_x_min = None
+        self._last_x_max = None
+        self._last_y_min = None
+        self._last_y_max = None
 
     def _draw(self, frame_no):
         if self._x_value == None:
@@ -166,6 +171,13 @@ class GraphInspector(GraphEffect):
         x = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
         for y in range(self._cfg.height):
             self.e_print("│", x, y)
+        
+        if self.resized():
+            self._inspection_data.clear() # regenerate these on any resize
+        self._last_x_min = self._cfg.x_min_value
+        self._last_x_max = self._cfg.x_max_value
+        self._last_y_min = self._cfg.y_min_value
+        self._last_y_max = self._cfg.y_max_value
 
         for field_name, plot in self._plot_data.items():
             if len(plot.data) == 0:
@@ -173,14 +185,26 @@ class GraphInspector(GraphEffect):
                 continue
 
             if not plot.visible:
+                if field_name in self._inspection_data:
+                    del self._inspection_data[field_name]
                 continue
 
             x_key = plot.x_key
 
             if x_key not in self._plot_data:
                 continue
+                
+            if field_name not in self._inspection_data:
+                self._inspection_data[field_name]  = [[]]*self._cfg.width
+                self.populate_column_vals(plot.data.values(), self._plot_data[x_key].data.values(), self._inspection_data[field_name])
+            else: #field name in inspection_data
+                self.populate_column_vals(plot.data.latest(), self._plot_data[x_key].data.latest(), self._inspection_data[field_name])
 
-            self.print_values_at_x(plot.data.values(), self._plot_data[x_key].data.values(), plot.colour)
+            #self.print_values_at_x(plot.data.values(), self._plot_data[x_key].data.values(), plot.colour)
+            self.print_value_at_x(field_name, plot.colour)
+        
+    def resized(self):
+        return not (self._last_x_min == self._cfg.x_min_value and self._last_x_max == self._cfg.x_max_value and self._last_y_min == self._cfg.y_min_value and self._last_y_max == self._cfg.y_max_value)
     
     def set_x_value(self, x_val=None):
         self._x_value = x_val if x_val != None else (self._cfg.x_max_value + self._cfg.x_min_value) / 2
@@ -191,31 +215,78 @@ class GraphInspector(GraphEffect):
     def tooltip(self):
         return f"← : Move Left | → : Move Right | CTRL+move : Move slower"
     
-    def print_values_at_x(self, y_data, x_data, colour=7):
-        ref_x_pix = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+    def populate_column_vals(self, y_values:list, x_values:list, column_ref:list[list]):
+        for x,y in zip(x_values, y_values):
+            col_id = get_mapped_value(x, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+            # y_pix = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+            if col_id < 0 or col_id >= self._cfg.width:
+                continue
+            column_ref[col_id].append(GraphPoint(x,y))
+    
+    def print_value_at_x(self, field_name, colour:int=7):
+        col_id = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+        field_columns = self._inspection_data[field_name]
+        pts = field_columns[col_id]
+        i = 0
+        ok = True
+        #extend the search to the surrounding columns to find the best one
+        while len(pts) == 0 and ok:
+            i+=1
+            lower = col_id-i
+            higher = col_id+i
+            ok = False
+            if lower >= 0:
+                pts += field_columns[lower]
+                ok = True
+            if higher < self._cfg.width:
+                pts += field_columns[higher]
+                ok = True
+
+        #break early if no points.
+        if len(pts) == 0:
+            return
+        
+        # find the single best point
         err = math.inf
         best = None
-        found = False
-
-        for x_val, y_val in zip(x_data, y_data):
-            x_pix = get_mapped_value(x_val, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
-            y_pix = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
-            if x_pix < 0 or x_pix >= self._cfg.width or y_pix < 0 or y_pix > self._cfg.height:
-                continue
-
-            if x_pix == ref_x_pix:
-                self.e_print(f"⮾ {y_val}", x_pix, y_pix, colour)
-                found = True
-
-            if found:
-                continue
-            tmp = abs(self._x_value - x_val)
+        for pt in pts:
+            tmp = abs(self._x_value - pt.x)
             if tmp < err:
                 err = tmp
-                best = (y_val, x_pix, y_pix)
+                best = pt
+        
+        # print it
+        if best != None:
+            x_pix = get_mapped_value(best.x, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+            y_pix = get_mapped_value(best.y, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+            self.e_print(f"⮾ {best.y}", x_pix, y_pix, colour)
 
-        if not found and best != None:
-            self.e_print(f"⮾ {best[0]}", best[1], best[2], colour)
+    
+    # def print_values_at_x(self, y_data, x_data, colour=7):
+    #     ref_x_pix = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+    #     err = math.inf
+    #     best = None
+    #     found = False
+
+    #     for pt in zip(x_data, y_data):
+    #         x_pix = get_mapped_value(x_val, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+    #         y_pix = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+    #         if x_pix < 0 or x_pix >= self._cfg.width or y_pix < 0 or y_pix > self._cfg.height:
+    #             continue
+
+    #         if x_pix == ref_x_pix:
+    #             self.e_print(f"⮾ {y_val}", x_pix, y_pix, colour)
+    #             found = True
+
+    #         if found:
+    #             continue
+    #         tmp = abs(self._x_value - x_val)
+    #         if tmp < err:
+    #             err = tmp
+    #             best = (y_val, x_pix, y_pix)
+
+    #     if not found and best != None:
+    #         self.e_print(f"⮾ {best[0]}", best[1], best[2], colour)
 
     
     def scroll_up_x(self, step=100):
