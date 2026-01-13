@@ -160,10 +160,12 @@ class GraphInspector(GraphEffect):
         self._plot_data = plot_data
         self._x_value = initial_x_value
         self._inspection_data = {} #dict of field name : [[GraphPoint] by column]
+        self._matched_pts = {} #dict of field name : GraphPoint
         self._last_x_min = None
         self._last_x_max = None
         self._last_y_min = None
         self._last_y_max = None
+        self._moved = False
 
     def _draw(self, frame_no):
         if self._x_value == None:
@@ -179,6 +181,8 @@ class GraphInspector(GraphEffect):
         self._last_y_min = self._cfg.y_min_value
         self._last_y_max = self._cfg.y_max_value
 
+        new = []
+        # just check if visibility has changed. update the data chunks as needed for visible graphs
         for field_name, plot in self._plot_data.items():
             if len(plot.data) == 0:
                 #return # why return?
@@ -187,6 +191,7 @@ class GraphInspector(GraphEffect):
             if not plot.visible:
                 if field_name in self._inspection_data:
                     del self._inspection_data[field_name]
+                    del self._matched_pts[field_name]
                 continue
 
             x_key = plot.x_key
@@ -196,12 +201,21 @@ class GraphInspector(GraphEffect):
                 
             if field_name not in self._inspection_data:
                 self._inspection_data[field_name]  = [[]]*self._cfg.width
+                self._matched_pts[field_name] = None
+                new.append(field_name)
                 self.populate_column_vals(plot.data.values(), self._plot_data[x_key].data.values(), self._inspection_data[field_name])
             else: #field name in inspection_data
                 self.populate_column_vals(plot.data.latest(), self._plot_data[x_key].data.latest(), self._inspection_data[field_name])
+                if self._moved:
+                    new.append(field_name)
 
             #self.print_values_at_x(plot.data.values(), self._plot_data[x_key].data.values(), plot.colour)
-            self.print_value_at_x(field_name, plot.colour)
+        #only update the ones marked as new
+        for field_name in new:
+            self.get_matched_pt_at_x(field_name)
+        
+        self.print_matched_pts()
+        self._moved = False
         
     def resized(self):
         return not (self._last_x_min == self._cfg.x_min_value and self._last_x_max == self._cfg.x_max_value and self._last_y_min == self._cfg.y_min_value and self._last_y_max == self._cfg.y_max_value)
@@ -223,7 +237,7 @@ class GraphInspector(GraphEffect):
                 continue
             column_ref[col_id].append(GraphPoint(x,y))
     
-    def print_value_at_x(self, field_name, colour:int=7):
+    def get_matched_pt_at_x(self, field_name):
         col_id = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
         field_columns = self._inspection_data[field_name]
         pts = field_columns[col_id]
@@ -255,13 +269,16 @@ class GraphInspector(GraphEffect):
                 err = tmp
                 best = pt
         
-        # print it
+        # add it to the best pts
         if best != None:
-            x_pix = get_mapped_value(best.x, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
-            y_pix = get_mapped_value(best.y, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
-            self.e_print(f"⮾ {best.y}", x_pix, y_pix, colour)
+            self._matched_pts[field_name] = best
 
-    
+    def print_matched_pts(self):
+        for field_name, pt in self._matched_pts.items():
+            x_pix = get_mapped_value(pt.x, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+            y_pix = get_mapped_value(pt.y, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+            self.e_print(f"⮾ {pt.y}", x_pix, y_pix, self._plot_data[field_name].colour)
+
     # def print_values_at_x(self, y_data, x_data, colour=7):
     #     ref_x_pix = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
     #     err = math.inf
@@ -293,33 +310,39 @@ class GraphInspector(GraphEffect):
         d = (self._cfg.x_max_value - self._cfg.x_min_value) / step
         n_val = self._x_value + d
         if self._x_value < n_val:
-            self._x_value = min(n_val, self._cfg.x_max_value)
+            return min(n_val, self._cfg.x_max_value)
         else:
-            self._x_value = max(n_val, self._cfg.x_max_value)
+            return max(n_val, self._cfg.x_max_value)
         
 
     def scroll_down_x(self, step=100):
         d = (self._cfg.x_max_value - self._cfg.x_min_value) / step
         n_val = self._x_value - d
         if self._x_value < n_val:
-            self._x_value = min(n_val, self._cfg.x_min_value)
+            return min(n_val, self._cfg.x_min_value)
         else:
-            self._x_value = max(n_val, self._cfg.x_min_value)
+            return max(n_val, self._cfg.x_min_value)
+    
+    def scroll_x(self, up:bool, step):
+        res = self.scroll_up_x(step) if up else self.scroll_down_x(step)
+        if res != self._x_value:
+            self._moved = True
+        self._x_value = res
         
 
     def process_event(self, event):
         if isinstance(event, KeyboardEvent):
             if event.key_code == KEY_CODES.LEFT: # LEFT ARROW
-                self.scroll_down_x(self._cfg.width/2)
+                self.scroll_x(False, self._cfg.width/2)
                 return None
             if event.key_code == KEY_CODES.RIGHT: # RIGHT ARROW
-                self.scroll_up_x(self._cfg.width/2)
+                self.scroll_x(True, self._cfg.width/2)
                 return None
             if event.key_code == KEY_CODES.CTRL_LEFT: # CTRL + LEFT ARROW
-                self.scroll_down_x(self._cfg.width*10)
+                self.scroll_x(False, self._cfg.width*10)
                 return None
             if event.key_code == KEY_CODES.CTRL_RIGHT: # CTRL + RIGHT ARROW
-                self.scroll_up_x(self._cfg.width*10)
+                self.scroll_x(True, self._cfg.width*10)
                 return None
 
         return event
