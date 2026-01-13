@@ -99,7 +99,7 @@ class Plot(GraphEffect):
         if self.x_bounds_changed() or self.scanline_shift_needed():
             # self._counts[0] += 1
             self._scanlines.clear()
-            self.generate_scanlines(y_data.values(), x_data.values())
+            self.generate_scanlines(y_data, x_data)
             generate_scanlines_time = time.time()-start_time
             # self._last_data_index = data_size-1
             self._scanline_resolution = (self._cfg.x_max_value - self._cfg.x_min_value) / self.plot_width
@@ -133,9 +133,10 @@ class Plot(GraphEffect):
     
     def generate_scanlines(self, y_data, x_data, start_index=0):
         width = self.plot_width
-        for i in range(start_index, len(x_data)):
-            x = x_data[i]
-            y = y_data[i]
+        # for i in range(start_index, len(x_data)):
+        #     x = x_data[i]
+        #     y = y_data[i]
+        for x,y in zip(x_data, y_data):
             # get the x index. this will be the column index.
             x_index = get_mapped_value(x, self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
             if x_index > width-1 or x_index < 0:
