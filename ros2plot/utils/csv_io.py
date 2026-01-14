@@ -33,11 +33,11 @@ def write_to_csv(filename, data):
     
 def init_plot_stats_csv():
     filename = filename_gen()
-    headers = ["data_size", "num_plots", "frame_time", "screen_width", "screen_height"]
+    headers = ["timestamp", "data_size", "num_plots", "frame_time", "screen_width", "screen_height"]
     write_to_csv(filename, headers)
     return filename
 
-def write_plot_stats_to_csv(filename, plot_data_dict, frame_time, screen_width, screen_height):
+def write_plot_stats_to_csv(filename, timestamp, plot_data_dict, frame_time, screen_width, screen_height):
     data_size = 0
     num_plots = 0
     for field,plot_data in plot_data_dict.items():
@@ -45,7 +45,7 @@ def write_plot_stats_to_csv(filename, plot_data_dict, frame_time, screen_width, 
             continue
         data_size += len(plot_data.data)
         num_plots += 1
-    row_data = [data_size, num_plots, frame_time, screen_width, screen_height]
+    row_data = [timestamp, data_size, num_plots, frame_time, screen_width, screen_height]
     write_to_csv(filename, row_data)
 
 
