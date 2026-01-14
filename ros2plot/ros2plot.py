@@ -95,10 +95,10 @@ class Ros2Plot(RosPlotDataHandler):
         self._effects["zoom_selector"] = GraphZoomSelector(self._screen, self._graph_config, self._draw_offsets)
 
     
-    def initialize_plots(self, topic_filter: str = None, auto_add_display:bool=True):
+    def initialize_plots(self, topic_filters: list[str] = None, auto_add_display:bool=True):
         for field in self.data:
-            if topic_filter != None:
-                if topic_filter not in field:
+            if topic_filters != None:
+                if all(topic_filter not in field for topic_filter in topic_filters):
                     continue
 
             if field == self.timestamp_key_from_field(field):
@@ -275,7 +275,7 @@ class Ros2Plot(RosPlotDataHandler):
             # initialize the plot data with the returned msg_fields from the multi_subscriber using the generic update method
             self._process_topic_update(topic, None, msg_fields)
             # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
-            self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
+            self.initialize_plots(topic_filters=[topic], auto_add_display=True if field_filter == None else False)
             if field_filter != None:
                 fails = []
                 for field in field_filter:
