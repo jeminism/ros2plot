@@ -159,6 +159,13 @@ class GraphInspector(GraphEffect):
         super().__init__(screen, cfg, offsets, redraw_on_pause=False)
         self._plot_data = plot_data
         self._x_value = initial_x_value
+        self._inspection_data = {} #dict of field name : [[GraphPoint] by column]
+        self._matched_pts = {} #dict of field name : GraphPoint
+        self._last_x_min = None
+        self._last_x_max = None
+        self._last_y_min = None
+        self._last_y_max = None
+        self._moved = False
 
     def _draw(self, frame_no):
         if self._x_value == None:
@@ -166,21 +173,51 @@ class GraphInspector(GraphEffect):
         x = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
         for y in range(self._cfg.height):
             self.e_print("│", x, y)
+        
+        if self.resized():
+            self._inspection_data.clear() # regenerate these on any resize
+        self._last_x_min = self._cfg.x_min_value
+        self._last_x_max = self._cfg.x_max_value
+        self._last_y_min = self._cfg.y_min_value
+        self._last_y_max = self._cfg.y_max_value
 
+        new = []
+        # just check if visibility has changed. update the data chunks as needed for visible graphs
         for field_name, plot in self._plot_data.items():
             if len(plot.data) == 0:
                 #return # why return?
                 continue
 
             if not plot.visible:
+                if field_name in self._inspection_data:
+                    del self._inspection_data[field_name]
+                    del self._matched_pts[field_name]
                 continue
 
             x_key = plot.x_key
 
             if x_key not in self._plot_data:
                 continue
+                
+            if field_name not in self._inspection_data:
+                self._inspection_data[field_name]  = [[]]*self._cfg.width
+                self._matched_pts[field_name] = None
+                new.append(field_name) #always update a new joiner
+                self.populate_column_vals(plot.data.values(), self._plot_data[x_key].data.values(), self._inspection_data[field_name])
+            else: 
+                self.populate_column_vals(plot.data.latest(), self._plot_data[x_key].data.latest(), self._inspection_data[field_name])
+                if self._moved: #only update an existing visible graph if the cursor has moved to save on processing of matched pt
+                    new.append(field_name)
 
-            self.print_values_at_x(plot.data.values(), self._plot_data[x_key].data.values(), plot.colour)
+        #only update the ones marked as new
+        for field_name in new:
+            self.get_matched_pt_at_x(field_name)
+        
+        self.print_matched_pts()
+        self._moved = False
+        
+    def resized(self):
+        return not (self._last_x_min == self._cfg.x_min_value and self._last_x_max == self._cfg.x_max_value and self._last_y_min == self._cfg.y_min_value and self._last_y_max == self._cfg.y_max_value)
     
     def set_x_value(self, x_val=None):
         self._x_value = x_val if x_val != None else (self._cfg.x_max_value + self._cfg.x_min_value) / 2
@@ -191,64 +228,96 @@ class GraphInspector(GraphEffect):
     def tooltip(self):
         return f"← : Move Left | → : Move Right | CTRL+move : Move slower"
     
-    def print_values_at_x(self, y_data, x_data, colour=7):
-        ref_x_pix = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+    def populate_column_vals(self, y_values:list, x_values:list, column_ref:list[list]):
+        for x,y in zip(x_values, y_values):
+            col_id = get_mapped_value(x, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+            if col_id < 0 or col_id >= self._cfg.width:
+                continue
+            column_ref[col_id].append(GraphPoint(x,y))
+    
+    def get_matched_pt_at_x(self, field_name):
+        col_id = get_mapped_value(self._x_value, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+        field_columns = self._inspection_data[field_name]
+        pts = field_columns[col_id]
+        i = 0
+        ok = True
+        #extend the search to the surrounding columns to find the best one
+        while len(pts) == 0 and ok:
+            i+=1
+            lower = col_id-i
+            higher = col_id+i
+            ok = False
+            if lower >= 0:
+                pts += field_columns[lower]
+                ok = True
+            if higher < self._cfg.width:
+                pts += field_columns[higher]
+                ok = True
+
+        #break early if no points.
+        if len(pts) == 0:
+            return
+        
+        # find the single best point
         err = math.inf
         best = None
-        found = False
-
-        for x_val, y_val in zip(x_data, y_data):
-            x_pix = get_mapped_value(x_val, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
-            y_pix = get_mapped_value(y_val, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
-            if x_pix < 0 or x_pix >= self._cfg.width or y_pix < 0 or y_pix > self._cfg.height:
-                continue
-
-            if x_pix == ref_x_pix:
-                self.e_print(f"⮾ {y_val}", x_pix, y_pix, colour)
-                found = True
-
-            if found:
-                continue
-            tmp = abs(self._x_value - x_val)
+        for pt in pts:
+            tmp = abs(self._x_value - pt.x)
             if tmp < err:
                 err = tmp
-                best = (y_val, x_pix, y_pix)
+                best = pt
+        
+        # add it to the best pts
+        if best != None:
+            self._matched_pts[field_name] = best
 
-        if not found and best != None:
-            self.e_print(f"⮾ {best[0]}", best[1], best[2], colour)
-
+    def print_matched_pts(self):
+        for field_name, pt in self._matched_pts.items():
+            if pt == None:
+                continue
+            x_pix = get_mapped_value(pt.x, self._cfg.x_max_value, self._cfg.width-1, self._cfg.x_min_value, 0)
+            y_pix = get_mapped_value(pt.y, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+            if x_pix < 0 or x_pix >= self._cfg.width or y_pix < 0 or y_pix >= self._cfg.height:
+                continue 
+            self.e_print(f"⮾ {pt.y}", x_pix, y_pix, self._plot_data[field_name].colour)
     
     def scroll_up_x(self, step=100):
         d = (self._cfg.x_max_value - self._cfg.x_min_value) / step
         n_val = self._x_value + d
         if self._x_value < n_val:
-            self._x_value = min(n_val, self._cfg.x_max_value)
+            return min(n_val, self._cfg.x_max_value)
         else:
-            self._x_value = max(n_val, self._cfg.x_max_value)
+            return max(n_val, self._cfg.x_max_value)
         
 
     def scroll_down_x(self, step=100):
         d = (self._cfg.x_max_value - self._cfg.x_min_value) / step
         n_val = self._x_value - d
         if self._x_value < n_val:
-            self._x_value = min(n_val, self._cfg.x_min_value)
+            return min(n_val, self._cfg.x_min_value)
         else:
-            self._x_value = max(n_val, self._cfg.x_min_value)
+            return max(n_val, self._cfg.x_min_value)
+    
+    def scroll_x(self, up:bool, step):
+        res = self.scroll_up_x(step) if up else self.scroll_down_x(step)
+        if res != self._x_value:
+            self._moved = True
+        self._x_value = res
         
 
     def process_event(self, event):
         if isinstance(event, KeyboardEvent):
             if event.key_code == KEY_CODES.LEFT: # LEFT ARROW
-                self.scroll_down_x(self._cfg.width/2)
+                self.scroll_x(False, self._cfg.width/2)
                 return None
             if event.key_code == KEY_CODES.RIGHT: # RIGHT ARROW
-                self.scroll_up_x(self._cfg.width/2)
+                self.scroll_x(True, self._cfg.width/2)
                 return None
             if event.key_code == KEY_CODES.CTRL_LEFT: # CTRL + LEFT ARROW
-                self.scroll_down_x(self._cfg.width*10)
+                self.scroll_x(False, self._cfg.width*10)
                 return None
             if event.key_code == KEY_CODES.CTRL_RIGHT: # CTRL + RIGHT ARROW
-                self.scroll_up_x(self._cfg.width*10)
+                self.scroll_x(True, self._cfg.width*10)
                 return None
 
         return event

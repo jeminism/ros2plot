@@ -369,6 +369,13 @@ class Ros2Plot(RosPlotDataHandler):
                         self.show_zoom()
                 elif event.key_code == ord('x'):
                     self._zoom_lock = False
+                    if self._effects["zoom_selector"] in self._scene.effects:
+                        self._effects["zoom_selector"].e_clear()
+                        self.remove_effect("zoom_selector")
+                    if self._effects["inspector"] in self._scene.effects:
+                        self._effects["inspector"].e_clear()
+                        self.remove_effect("inspector")
+
                 # else:
                 #     self.update_info_message(f"Unhandled Key press '{event.key_code}'")
     
