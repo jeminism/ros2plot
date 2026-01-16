@@ -29,7 +29,8 @@ def get_args(inputs, silent=False):
     parser = SilentParser() if silent else argparse.ArgumentParser()
     set_args(parser)
     try:
-        raw = vars(parser.parse_args(inputs))
+        args, unknown = parser.parse_known_args(inputs)
+        raw = vars(args)
         # just strip all leading slashes for field names as a rule
         res = {
             TOPIC_NAME: raw[TOPIC_NAME].lstrip("/") if raw[TOPIC_NAME] != None else None,
