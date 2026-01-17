@@ -100,14 +100,14 @@ class Plot(GraphEffect):
         if self.x_bounds_changed() or self.scanline_shift_needed():
             # self._counts[0] += 1
             res = (self._cfg.x_max_value - self._cfg.x_min_value) / (self.plot_width-1)
-            self._scanline_x_max = res * self.plot_width # calculate scanlines on this max value. existing data should leave the last column free for new data
+            self._scanline_x_max = (res * self.plot_width) + self._cfg.x_min_value # calculate scanlines on this max value. existing data should leave the last column free for new data
             self._scanlines.clear()
             self.generate_scanlines(y_data, x_data)
             generate_scanlines_time = time.time()-start_time
             # self._last_data_index = data_size-1
             self._plot_cell_buffer.clear()
             redraw_all = True
-        else
+        else:
             self.generate_scanlines(y_data.latest(), x_data.latest())
         
         if self.y_bounds_changed():
@@ -125,10 +125,10 @@ class Plot(GraphEffect):
         start_time = time.time()
         self.do_plot()
 
-        # self.debug_print(f"scanlines size: {len(self._scanlines)}, data : {data_time:.5f}, update scanlines : {generate_scanlines_time:.5f}, grid update : {update_time:.5f}, end-end : {time.time() - start_time:.5f}")
+        # self.debug_print(f"scanlines size: {len(self._scanlines)}, x max : {self._scanline_x_max} cfg max: {self._cfg.x_max_value}, update scanlines : {generate_scanlines_time:.5f}, grid update : {update_time:.5f}, end-end : {time.time() - start_time:.5f}")
     
     def generate_scanlines(self, y_data, x_data):
-        width = self._cfg.width-1
+        width = self.plot_width-1
         latest = self._scanlines[-1] if len(self._scanlines) > 0 else None
         for x,y in zip(x_data, y_data):
             # get the x index. this will be the column index.
