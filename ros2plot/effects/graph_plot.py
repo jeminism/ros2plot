@@ -33,7 +33,8 @@ class Plot(GraphEffect):
         # variables needed for minimal scanline updates at each timestep
         self._last_data_index = None
         self._last_scanline_index = None
-        self._scanline_resolution = None
+        # self._scanline_resolution = None
+        self._scanline_x_max = None
         self._last_x_min = None
         self._last_x_max = None
         self._last_y_min = None
@@ -98,26 +99,21 @@ class Plot(GraphEffect):
         redraw_all = False
         if self.x_bounds_changed() or self.scanline_shift_needed():
             # self._counts[0] += 1
+            res = (self._cfg.x_max_value - self._cfg.x_min_value) / (self.plot_width-1)
+            self._scanline_x_max = res * self.plot_width # calculate scanlines on this max value. existing data should leave the last column free for new data
             self._scanlines.clear()
             self.generate_scanlines(y_data, x_data)
             generate_scanlines_time = time.time()-start_time
             # self._last_data_index = data_size-1
-            self._scanline_resolution = (self._cfg.x_max_value - self._cfg.x_min_value) / self.plot_width
             self._plot_cell_buffer.clear()
             redraw_all = True
-        elif self.y_bounds_changed():
+        else
+            self.generate_scanlines(y_data.latest(), x_data.latest())
+        
+        if self.y_bounds_changed():
             # no need to clear scanlines here, but we need to regenerate the plot buffer
             self._plot_cell_buffer.clear()
             redraw_all = True
-        
-        
-        self.generate_scanlines(y_data.latest(), x_data.latest())
-
-        # if self._last_data_index < data_size-1:
-        #     # self._counts[2] += 1
-        #     self.generate_scanlines(y_data.latest(), x_data.latest())
-        #     self._last_data_index = data_size-1
-        
 
         self._last_x_min = self._cfg.x_min_value
         self._last_x_max = self._cfg.x_max_value
@@ -131,23 +127,20 @@ class Plot(GraphEffect):
 
         # self.debug_print(f"scanlines size: {len(self._scanlines)}, data : {data_time:.5f}, update scanlines : {generate_scanlines_time:.5f}, grid update : {update_time:.5f}, end-end : {time.time() - start_time:.5f}")
     
-    def generate_scanlines(self, y_data, x_data, start_index=0):
-        width = self.plot_width
-        # for i in range(start_index, len(x_data)):
-        #     x = x_data[i]
-        #     y = y_data[i]
+    def generate_scanlines(self, y_data, x_data):
+        width = self._cfg.width-1
+        latest = self._scanlines[-1] if len(self._scanlines) > 0 else None
         for x,y in zip(x_data, y_data):
             # get the x index. this will be the column index.
-            x_index = get_mapped_value(x, self._cfg.x_max_value, width-1, self._cfg.x_min_value, 0)
+            x_index = get_mapped_value(x, self._scanline_x_max, width-1, self._cfg.x_min_value, 0)
             if x_index > width-1 or x_index < 0:
                 continue
 
             # initialize a new scanline if empty or if not matching
-            if len(self._scanlines) == 0 or self._scanlines[-1].column_index != x_index:
-                self._scanlines.append(ScanlineRun())
-                self._scanlines[-1].column_index = x_index
-                
-            latest = self._scanlines[-1]
+            if latest == None or latest.column_index != x_index:
+                self._scanlines.append(ScanlineRun())                
+                latest = self._scanlines[-1]
+                latest.column_index = x_index
 
             # update the scanline with this latest y
             if latest.first == None:
@@ -161,16 +154,17 @@ class Plot(GraphEffect):
         # self.debug_print(f"{counts}, scanlines size: {len(self._scanlines)}. width: {width}")
     
     
-    def shift_scanlines(self):
-        delta = math.ceil((self._cfg.x_max_value - self._cfg.x_min_value) / self._scanline_resolution - self.plot_width)
+    # def shift_scanlines(self):
+    #     delta = math.ceil((self._cfg.x_max_value - self._cfg.x_min_value) / self._scanline_resolution - self.plot_width)
         
-        for scanline in self._scanlines:
-            scanline.column_index = scanline.column_index-delta if scanline.column_index > delta else 0
+    #     for scanline in self._scanlines:
+    #         scanline.column_index = scanline.column_index-delta if scanline.column_index > delta else 0
 
 
     def scanline_shift_needed(self):
         # using the previous column resolution, check if a new column needs to be created. if so, then it is time to shift the existing scanlines left
-        return ((self._cfg.x_max_value - self._cfg.x_min_value) / self._scanline_resolution - self.plot_width) > 0.9
+        # return ((self._cfg.x_max_value - self._cfg.x_min_value) / self._scanline_resolution - self.plot_width) > 0.9
+        return self._cfg.x_max_value > self._scanline_x_max
                            
     def x_bounds_changed(self):
         return self._last_x_min != self._cfg.x_min_value or self._last_x_max > self._cfg.x_max_value
