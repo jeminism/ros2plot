@@ -56,6 +56,24 @@ class RosPlotDataHandler:
     def default_csv_x(self, value):
         self._default_csv_x = value
     
+    def get_x_key_from_field(self, field_name, x_key=None): #check for similar named fields across all data sources. otherwise retrieve based on defaults
+        data_source = field_name.split("/")[0]
+        if x_key == None: #retrieve defaults
+            return self._default_x_key_for_data(data_source)
+        else:
+            if len(x_key) > 0:
+                x_key_source = x_key.split("/")[0]
+                if data_source == x_key_source:
+                    return x_key # return x_key directly if the data source is contained in itself as this is a specific x_key filter
+                else:
+                    has_slash = x_key[0] == "/"
+                    return data_source + ("" if has_slash else "/") + x_key # otherwise return concantenation of the source and key
+    
+    def _default_x_key_for_data(self, data_source):
+        if ".csv" in data_source:
+            return data_source+"/"+self._default_csv_x        
+        return data_source+TIMESTAMP_KEY
+
     
     def get_plot(self, name:str):
         if name not in self._data:

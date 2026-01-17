@@ -101,7 +101,7 @@ class Ros2Plot(RosPlotDataHandler):
                 if all(topic_filter not in field for topic_filter in topic_filters):
                     continue
 
-            if field == self.timestamp_key_from_field(field):
+            if field == self.get_x_key_from_field(field):
                 continue
 
             if field not in self._effects:
@@ -118,15 +118,20 @@ class Ros2Plot(RosPlotDataHandler):
                 self.add_plot(field)
     
     def set_x_axis_key(self, x_key=None):
-        if x_key != None and x_key not in self.data:
-            self.update_info_message(f"Tried to set '{x_key}' as the x axis data but this key does not exist")
-            return
         self._x_key = x_key
         for field in self.data:
             self.set_plot_x_axis_key(field, x_key)
 
     def set_plot_x_axis_key(self, field, x_key:str=None):
-        self.data[field].x_key = x_key if x_key != None else self.timestamp_key_from_field(field)
+        cand_key = self.get_x_key_from_field(field, x_key) 
+        # if x_key is a full key 'topic_name/timestamp' then cand_key is 'field/topic_name/timestamp' and this will be filtered in the subsequent visibility setter
+        # if x_key is simply 'timestamp', then cand_key is 'field/timestamp'. so all topic / csv sources with timestamp field will be added.
+        if cand_key not in self.data:
+            self.data[field].visible = False
+        elif len(self.data[field].data) != len(self.data[cand_key].data):
+            self.data[field].visible = False
+        else:
+            self.data[field].x_key = cand_key
     
     def get_ros_time(self):
         return self._multi_subscriber.get_time()
@@ -137,9 +142,24 @@ class Ros2Plot(RosPlotDataHandler):
         for plot_data in self.data.values():
             if not plot_data.visible:
                 continue
-            valid = True
             t_min = plot_data.minimum
             t_max = plot_data.maximum
+            if t_min < res_min:
+                res_min = t_min
+            if t_max > res_max:
+                res_max = t_max
+        if res_min != math.inf:
+            return res_min, res_max  
+        return 0,0
+        
+    def min_max_visible_x(self):
+        res_min = math.inf
+        res_max = -math.inf
+        for plot_data in self.data.values():
+            if not plot_data.visible:
+                continue
+            t_min = self.data[plot_data.x_key].minimum
+            t_max = self.data[plot_data.x_key].maximum
             if t_min < res_min:
                 res_min = t_min
             if t_max > res_max:
@@ -159,15 +179,16 @@ class Ros2Plot(RosPlotDataHandler):
         if self._zoom_lock == False:
             if len(self.data) > 0 and len(next(iter(self.data.values())).data) > 0:
                 self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
-                if self._x_key == None:
-                    first_field_key = next(iter(self.data.keys()))
-                    first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data.front()
-                    self._graph_config.x_min_value = first_time_data if first_time_data != None else self._start_time
-                    self._graph_config.x_max_value = self.get_ros_time()
-                else:
-                    # self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data.values())
-                    self._graph_config.x_min_value = self.data[self._x_key].minimum
-                    self._graph_config.x_max_value = self.data[self._x_key].maximum
+                self._graph_config.x_min_value, self._graph_config.x_max_value = self.min_max_visible_x()
+                # if self._x_key == None:
+                #     first_field_key = next(iter(self.data.keys()))
+                #     first_time_data = self.data[self.get_x_key_from_field(first_field_key)].data.front()
+                #     self._graph_config.x_min_value = first_time_data if first_time_data != None else self._start_time
+                #     self._graph_config.x_max_value = self.get_ros_time()
+                # else:
+                #     # self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data.values())
+                #     self._graph_config.x_min_value = self.data[self._x_key].minimum
+                #     self._graph_config.x_max_value = self.data[self._x_key].maximum
             else:
                 self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
             
