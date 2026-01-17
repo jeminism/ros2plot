@@ -2,6 +2,7 @@
 from rclpy.node import Node
 from . import colour_palette as COLOURS
 from .memory_bounded_deque import MemoryBoundedDeque
+from .csv_io import read_from_csv
 
 import queue
 import threading
@@ -9,6 +10,7 @@ import attrs
 import math
 
 TIMESTAMP_KEY="/callback_timestamp"
+CSV_TIMESTAMP_KEY="timestamp"
 
 @attrs.define
 class GraphConfigs:
@@ -34,19 +36,26 @@ class PlotData:
     maximum: int = attrs.field(default=-math.inf)
 
 class RosPlotDataHandler:
-    def __init__(self):
+    def __init__(self, csv_x=CSV_TIMESTAMP_KEY):
         self._queue = queue.Queue() # queue to store data updates, to avoid lock overheads involved when updating data from each callback
         self._data = {} # dictionary to store [field : PlotData] pairs
         # individual locks inside each MemoryBoundedDeque is insufficient, as we cannot guarantee that all deques are updated before each draw, 
         # resulting in mismatch length error during plotting
         self._lock = threading.Lock() # solution: an overall lock is needed to guard data update and draw cycle
+        self._default_csv_x = csv_x
 
     @property
     def data(self):
         return self._data
     
-    def timestamp_key_from_field(self, field_name):
-        return field_name.split("/")[0]+TIMESTAMP_KEY
+    @property
+    def default_csv_x(self):
+        return self._default_csv_x
+
+    @default_csv_x.setter
+    def default_csv_x(self, value):
+        self._default_csv_x = value
+    
     
     def get_plot(self, name:str):
         if name not in self._data:
@@ -90,5 +99,21 @@ class RosPlotDataHandler:
             for key in self._data:
                 self._data[key].data.clear_latest()
     
-        
-    
+    def csv_to_plotdata(self, filename):
+        try:
+            rows = read_from_csv(filename)
+            for row in rows:
+                # print(row)
+                for csv_field,value_str in row.items():
+                    field = filename+"/"+csv_field
+                    value = float(value_str) if "." in value_str else int(value_str)
+                    if field not in self.data:
+                        self.data[field] = PlotData()
+                        self.data[field].data.set_configs(max_fraction=0.02, trim_fraction=0.05)
+                    self.data[field].data.append(value)
+                    if value < self.data[field].minimum:
+                        self.data[field].minimum = value 
+                    if value > self.data[field].maximum:
+                        self.data[field].maximum = value 
+        except Exception as e:
+            raise Exception(f"{e}")

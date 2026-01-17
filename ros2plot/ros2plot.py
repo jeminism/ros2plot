@@ -8,7 +8,7 @@ from .effects import DrawOffsets, XAxis, YAxis, Plot, GraphInspector, GraphZoomS
 
 from .widgets import Legend, Selector, TextInput, TextLabel
 
-from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, init_plot_stats_csv, write_plot_stats_to_csv
+from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, CSV, CSV_DEFAULT_X_KEY, write_to_csv
 
 from .ros import MultiSubscriber
 
@@ -19,7 +19,7 @@ import math
 class Ros2Plot(RosPlotDataHandler):
     def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber, log_stats:bool=False):
         super().__init__()
-        self._log_file = init_plot_stats_csv() if log_stats else None
+        self._log_file = self._init_plot_stats_csv() if log_stats else None
         self._scene = Scene([], duration=-1)
         self._screen = screen
         self._screen.set_scenes([self._scene])
@@ -385,6 +385,27 @@ class Ros2Plot(RosPlotDataHandler):
     def tooltip(self):
         return "p : Pause plot rendering | l : show legend | s : toggle plot visibility | i : open value inspector | z : open window resizer | / : open subscription configurator"        
 
+    def _filename_gen(self):
+        return "ros2plot_stats_"+ datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".csv"
+
+    def _init_plot_stats_csv(self):
+        filename = filename_gen()
+        headers = ["timestamp", "data_size", "num_plots", "frame_time", "screen_width", "screen_height"]
+        write_to_csv(filename, headers)
+        return filename
+
+    def write_plot_stats_to_csv(self, frame_time):
+        data_size = 0
+        num_plots = 0
+        for field,plot_data in self.data.items():
+            if not plot_data.visible:
+                continue
+            data_size += len(plot_data.data)
+            num_plots += 1
+        row_data = [self.get_ros_time(), data_size, num_plots, frame_time, self._screen.width, self._screen.height]
+        write_to_csv(self._log_file, row_data)
+            
+    
 
     def run(self, shutdown):
         while not shutdown:
@@ -413,7 +434,7 @@ class Ros2Plot(RosPlotDataHandler):
                 # self.update_info_message(f"frame time = {time.time() - start_time:.5f}. graph cfg time: {update_time:.5f}. draw time: {draw_time:.5f}. clear time: {clear_time:.5f}.")
 
                 if self._log_file != None:
-                    write_plot_stats_to_csv(self._log_file, self.get_ros_time(), self.data, time.time() - start_time, self._screen.width, self._screen.height)
+                    self.write_plot_stats_to_csv(time.time() - start_time)
 
                 # self._handle_event()
                 event = self._screen.get_event()
