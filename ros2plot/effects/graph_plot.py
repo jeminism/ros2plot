@@ -219,6 +219,9 @@ class Plot(GraphEffect):
         
     
     def do_plot(self):
+        if len(self._plot_cell_buffer) == 0:
+            return
+
         grid = self._grid
         # self.debug_print(f"plotting {len(changed_grid_cells)} grid cells")
         done_ledger = set() # set to store done cells so we ignore overlaps
