@@ -8,7 +8,7 @@ from .effects import DrawOffsets, XAxis, YAxis, Plot, GraphInspector, GraphZoomS
 
 from .widgets import Legend, Selector, TextInput, TextLabel
 
-from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
+from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, init_plot_stats_csv, write_plot_stats_to_csv
 
 from .ros import MultiSubscriber
 
@@ -17,8 +17,9 @@ import math
 
 
 class Ros2Plot(RosPlotDataHandler):
-    def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber):
+    def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber, log_stats:bool=False):
         super().__init__()
+        self._log_file = init_plot_stats_csv() if log_stats else None
         self._scene = Scene([], duration=-1)
         self._screen = screen
         self._screen.set_scenes([self._scene])
@@ -94,10 +95,10 @@ class Ros2Plot(RosPlotDataHandler):
         self._effects["zoom_selector"] = GraphZoomSelector(self._screen, self._graph_config, self._draw_offsets)
 
     
-    def initialize_plots(self, topic_filter: str = None, auto_add_display:bool=True):
+    def initialize_plots(self, topic_filters: list[str] = None, auto_add_display:bool=True):
         for field in self.data:
-            if topic_filter != None:
-                if topic_filter not in field:
+            if topic_filters != None:
+                if all(topic_filter not in field for topic_filter in topic_filters):
                     continue
 
             if field == self.timestamp_key_from_field(field):
@@ -188,8 +189,10 @@ class Ros2Plot(RosPlotDataHandler):
             y_0 = self._graph_config.y_max_value
         elif self._graph_config.y_min_value > 0 and self._graph_config.y_max_value > 0:
             y_0 = self._graph_config.y_min_value
-        
-        self._graph_config.x = get_mapped_value(x_0, self._graph_config.x_max_value, self._graph_config.width-1, self._graph_config.x_min_value, 0)
+        try:
+            self._graph_config.x = get_mapped_value(x_0, self._graph_config.x_max_value, self._graph_config.width-1, self._graph_config.x_min_value, 0)
+        except Exception as e:
+            raise TypeError(f"{e}. val: {x_0}, min: {self._graph_config.x_min_value}, max: {self._graph_config.x_max_value}")
         self._graph_config.y = get_mapped_value(y_0, self._graph_config.y_max_value, 0, self._graph_config.y_min_value, self._graph_config.height-1)
         
     def initialize_effect(self, name, effect=None):
@@ -272,7 +275,7 @@ class Ros2Plot(RosPlotDataHandler):
             # initialize the plot data with the returned msg_fields from the multi_subscriber using the generic update method
             self._process_topic_update(topic, None, msg_fields)
             # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
-            self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
+            self.initialize_plots(topic_filters=[topic], auto_add_display=True if field_filter == None else False)
             if field_filter != None:
                 fails = []
                 for field in field_filter:
@@ -409,12 +412,15 @@ class Ros2Plot(RosPlotDataHandler):
                 
                 self.update_info_message(f"frame time = {time.time() - start_time:.5f}. graph cfg time: {update_time:.5f}. draw time: {draw_time:.5f}. clear time: {clear_time:.5f}.")
 
+                if self._log_file != None:
+                    write_plot_stats_to_csv(self._log_file, self.get_ros_time(), self.data, time.time() - start_time, self._screen.width, self._screen.height)
 
                 # self._handle_event()
                 event = self._screen.get_event()
                 if not (isinstance(event, KeyboardEvent) or isinstance(event, MouseEvent)):
                     continue
                 self._handle_event(event)
+
 
 
             except StopApplication:
