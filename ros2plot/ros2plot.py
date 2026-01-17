@@ -256,15 +256,23 @@ class Ros2Plot(RosPlotDataHandler):
             return
         try:
             args = get_args(ls_split, silent=True)
+            if args[CSV_DEFAULT_X_KEY] != None:
+                display.csv_default_x = args[CSV_DEFAULT_X_KEY]
             if args[TOPIC_NAME] != None:
                 self.add_subscriber(args[TOPIC_NAME], args[TOPIC_TYPE], args[FIELDS])
+            elif args[CSV] != None:
+                csv = args[CSV]
+                self.csv_to_plotdata(csv)
+                csv_field_filter = [csv] if args[FIELDS] == None else [csv+"/"+f for f in args[FIELDS]]
+                self.initialize_plots(topic_filters=csv_field_filter)
+
             if args[X_FIELD] != None:
                 x_key = None
                 if args[X_FIELD] not in ("Time", "time", "TIME", "default", "Default", "DEFAULT", "none", "None", "NONE"):
                     x_key = args[X_FIELD] if args[TOPIC_NAME]==None else args[TOPIC_NAME]+"/"+args[X_FIELD]
                 self.set_x_axis_key(x_key)
         except Exception as e:
-            self.update_info_message("Failed to parse input args")
+            self.update_info_message(f"Failed to parse input args. {e}")
 
     def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
         topic = topic
