@@ -410,7 +410,7 @@ class Ros2Plot(RosPlotDataHandler):
                 self._clear_latest_data()
                 clear_time = time.time() - clear_start_time
                 
-                self.update_info_message(f"frame time = {time.time() - start_time:.5f}. graph cfg time: {update_time:.5f}. draw time: {draw_time:.5f}. clear time: {clear_time:.5f}.")
+                # self.update_info_message(f"frame time = {time.time() - start_time:.5f}. graph cfg time: {update_time:.5f}. draw time: {draw_time:.5f}. clear time: {clear_time:.5f}.")
 
                 if self._log_file != None:
                     write_plot_stats_to_csv(self._log_file, self.get_ros_time(), self.data, time.time() - start_time, self._screen.width, self._screen.height)
