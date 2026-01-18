@@ -4,6 +4,11 @@
 
 A terminal-based, real-time plotting tool for ROS2 topics. Ros2Plot automatically introspects ROS2 message types to extract numeric fields (int, float, bool) and plots them as time series. It uses asciimatics for the UI and braille characters for high-definition plots, supporting custom x-axes and interactive controls.
 
+Ros2Plot is highly optimized internally, and designed to deal with large data sizes. When new data is appended, Plots only process the new entries, re-using internal buffers for rendering. Buffers are refreshed when axes are resized beyond thresholds to rpeserve visual accuracy.
+
+It also provides some baseline memory guarantees (if you leave it running in a terminal forever...) by pruning *FIFO* the stored topic data to cap total memory usage at 2% of **free memory**. 
+
+
 ## Demo
 Here's a quick demo showcasing key features of runtime subscription, Plot value inspection & Plot Display region resizing.
 
@@ -36,6 +41,7 @@ Here's a quick demo showcasing key features of runtime subscription, Plot value 
 - numpy
 - attrs
 - pyyaml
+- psutil
 
 Install via pip or ROS2 package.
 
@@ -69,10 +75,31 @@ ros2 run ros2plot ros2plot
 ## Usage
 Run `ros2plot` after installation. The app starts with a blank screen; use hotkeys to subscribe and plot.
 
-Example: Plot pose data from a topic.
+If using ROS2 installation, append the following for the subsequent examples:
+```bash
+ros2 run ros2plot
+```
+*Example*: Plot all data from a topic.
+```bash
+ros2plot /robot/pose
+```
+*Example*: Visualize coordinate data from a topic by plotting Y against X.
 ```bash
 ros2plot /robot/pose geometry_msgs/PoseStamped --fields pose/position/y --x-field pose/position/y
 ```
+*Example*: Plot all data inside a csv
+```bash
+ros2plot --csv filename.csv
+```
+*Example*: Plot specific fields in a csv against another as the X-Axis
+```bash
+ros2plot --csv filename.csv --fields field_1 field_2 --x-field field_x
+```
+*Example*: Same as above, but additionally all CSVs will use field_x as the default X axis for future loading
+```bash
+ros2plot --csv filename.csv --fields field_1 field_2 --csv-default-x-key field_x
+```
+
 
 ## Hotkeys
 Control the UI with these keys.
@@ -83,8 +110,9 @@ Control the UI with these keys.
 | `p` | Pause rendering |
 | `/` | Open subscription input (see below) |
 | `s` | Toggle plot visibility and x-axis selection |
-| `i` | Enter inspection mode (pauses updates) |
+| `i` | Enter inspection mode (locks current window zoom. updates still occur within locked region) |
 | `z` | Enter zoom configurator (locks current window zoom. updates still occur within locked region) |
+| `c` | Enter the plot configuration option page |
 | `x` | Reset zoom to default |
 
 ### Subscription Input Hotkeys
@@ -99,6 +127,7 @@ Select fields for plotting or x-axis.
 |--------|-------------|
 | Space/Enter | Accept selection |
 | ↑/↓ | Navigate list |
+| `s` | Close Selector |
 
 ### Inspection Mode Hotkeys
 | Hotkey | Description |
@@ -116,6 +145,14 @@ Controls two points (green when selected).
 | Ctrl + Arrow | Fine move |
 | `z` | Exit mode (unpauses) |
 
+### Plot Configuration Hotkeys
+Select fields for plotting or x-axis.
+| Hotkey | Description |
+|--------|-------------|
+| Space/Enter | Accept selection |
+| ↑/↓ | Navigate list |
+| `c` | Close Configurator |
+
 ## Command-Line Arguments
 Define initial subscriptions via CLI or in-app input.
 
@@ -123,10 +160,13 @@ Usage: `ros2plot <topic> [type] [--fields <fields>] [--x-field <field>]`
 
 | Argument | Description | Example |
 |----------|-------------|---------|
-| `<topic>` | Topic name (required in-app, optional command line) | `/pose_topic` |
+| `<topic>` | Topic name | `/pose_topic` |
 | `[type]` | Message type (optional; auto-detected if omitted) | `geometry_msgs/PoseStamped` |
 | `--fields` | relative fields to plot (optional; all numeric fields are plotted if omitted) | `--fields pose/position/x pose/position/y` |
 | `--x-field` | Field for x-axis (optional; defaults to timestamp). If provided with a topic_name, expects relative field path. If provided standalone, expects topic_name-qualified path | With topic name:<br> `--x-field pose/position/x` <br><br> Standalone:<br>`--x-field pose_topic/pose/position/x` |
+| `--csv` | File path of the csv file to load. Not compatible with Topic in same command.| `--csv filename.csv` |
+| `--csv-default-x-key` | Default key that CSVs will use as their x axis. Defaults to 'timestamp'. If not present in CSV, the plot will just not be visible on default | `--csv-default-x-key x_field` |
+| `--log-stats` | Optional flag to log performance data | `--csv-default-x-key x_field` |
 
 
 
