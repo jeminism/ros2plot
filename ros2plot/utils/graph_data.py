@@ -69,6 +69,7 @@ class RosPlotDataHandler:
                 else:
                     has_slash = x_key[0] == "/"
                     return data_source + ("" if has_slash else "/") + x_key # otherwise return concantenation of the source and key
+        return None
     
     def _default_x_key_for_data(self, data_source):
         if ".csv" in data_source:
@@ -125,7 +126,10 @@ class RosPlotDataHandler:
                 # print(row)
                 for csv_field,value_str in row.items():
                     field = filename+"/"+csv_field
-                    value = float(value_str) if "." in value_str else int(value_str)
+                    try:
+                        value = float(value_str) if "." in value_str else int(value_str)
+                    except:
+                        continue
                     if field not in self.data:
                         self.data[field] = PlotData()
                         self.data[field].data.set_configs(max_fraction=0.02, trim_fraction=0.05)
