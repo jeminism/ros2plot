@@ -32,13 +32,13 @@ class Selector(GenericFrame):
         v = self._drop_down.value
         for value, i in self._options:
             if i == v:
-                return value if value != "Time" else None
+                return value if value != "Default" else None
         return None
 
     def set_plots(self, plot_data: dict[str, PlotData], current_x_key=None):
         self._layout.clear_widgets()
 
-        self._options = [("Time", 1)]
+        self._options = [("Default", 1)]
         i = 1
         n = 2
         for field in plot_data:
