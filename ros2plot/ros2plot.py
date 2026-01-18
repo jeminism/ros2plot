@@ -6,7 +6,7 @@ from asciimatics.exceptions import ResizeScreenError, StopApplication
 
 from .effects import DrawOffsets, XAxis, YAxis, Plot, GraphInspector, GraphZoomSelector
 
-from .widgets import Legend, Selector, TextInput, TextLabel
+from .widgets import Legend, Selector, TextInput, TextLabel, PlotConfigurator
 
 from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, CSV, CSV_DEFAULT_X_KEY, write_to_csv
 
@@ -94,6 +94,7 @@ class Ros2Plot(RosPlotDataHandler):
         self._effects["selector"] = Selector(self._screen, self._x_key, self._screen.width//2, self._screen.height//2, self._screen.width//4, self._draw_offsets.y)
         self._effects["inspector"] = GraphInspector(self._screen, self._graph_config, self.data, offsets=self._draw_offsets)
         self._effects["zoom_selector"] = GraphZoomSelector(self._screen, self._graph_config, self._draw_offsets)
+        self._effects["configurator"] = PlotConfigurator(self._screen, self._screen.width//4, self._screen.height//2, 3*self._screen.width//4, self._draw_offsets.y)        
 
     
     def initialize_plots(self, topic_filters: list[str] = None, auto_add_display:bool=True):
@@ -324,6 +325,10 @@ class Ros2Plot(RosPlotDataHandler):
         self._effects["legend"].set_plots(self.data)
         self.add_effect("legend")
 
+    def show_configurator(self):
+        self._effects["configurator"].setup_data(self.data)
+        self.add_effect("configurator")
+
     def show_selector(self):
         self._effects["selector"].set_plots(self.data, self._x_key)
         self.add_effect("selector")
@@ -387,19 +392,20 @@ class Ros2Plot(RosPlotDataHandler):
                     if self._effects["inspector"] in self._scene.effects:
                         self._effects["inspector"].e_clear()
                         self.remove_effect("inspector")
-                        # self.update_tooltip(self.tooltip())
                     else:
-                        # self._graph_config.pause = True
                         self.show_inspector()
                 elif event.key_code == ord('z'):
                     if self._effects["zoom_selector"] in self._scene.effects:
                         self._effects["zoom_selector"].e_clear()
                         self.remove_effect("zoom_selector")
-                        # self.update_tooltip(self.tooltip())
-                        # self._graph_config.pause = False
                     else:
-                        # self._graph_config.pause = True
                         self.show_zoom()
+                elif event.key_code == ord('c'):
+                    if self._effects["configurator"] in self._scene.effects:
+                        self._effects["configurator"].cleanup()
+                        self.remove_effect("configurator")
+                    else:
+                        self.show_configurator()
                 elif event.key_code == ord('x'):
                     self._zoom_lock = False
                     if self._effects["zoom_selector"] in self._scene.effects:
@@ -408,9 +414,6 @@ class Ros2Plot(RosPlotDataHandler):
                     if self._effects["inspector"] in self._scene.effects:
                         self._effects["inspector"].e_clear()
                         self.remove_effect("inspector")
-
-                # else:
-                #     self.update_info_message(f"Unhandled Key press '{event.key_code}'")
     
     def tooltip(self):
         return "p : Pause plot rendering | l : show legend | s : toggle plot visibility | i : open value inspector | z : open window resizer | / : open subscription configurator"        
