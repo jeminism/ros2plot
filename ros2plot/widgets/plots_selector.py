@@ -54,7 +54,9 @@ class Selector(GenericFrame):
 
         def toggle_visibility_gen(key):
             def toggle_visibility():
-                plot_data[key].visible = not plot_data[key].visible
+                x_key = plot_data[key].x_key
+                if x_key in plot_data and len(plot_data[key].data) == len(plot_data[x_key].data):
+                    plot_data[key].visible = not plot_data[key].visible
             return toggle_visibility
 
         for field in plot_data:

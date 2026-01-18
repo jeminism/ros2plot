@@ -116,7 +116,7 @@ class Ros2Plot(RosPlotDataHandler):
             
             self._plot_count += 1
             
-            if auto_add_display:
+            if auto_add_display and self._plottable(field, self.data[field].x_key):
                 self.add_plot(field)
     
     def set_x_axis_key(self, x_key=None):
@@ -125,15 +125,19 @@ class Ros2Plot(RosPlotDataHandler):
             self.set_plot_x_axis_key(field, x_key)
 
     def set_plot_x_axis_key(self, field, x_key:str=None):
-        cand_key = self.get_x_key_from_field(field, x_key) 
+        cand_key = self.get_x_key_from_field(field, x_key)
         # if x_key is a full key 'topic_name/timestamp' then cand_key is 'field/topic_name/timestamp' and this will be filtered in the subsequent visibility setter
         # if x_key is simply 'timestamp', then cand_key is 'field/timestamp'. so all topic / csv sources with timestamp field will be added.
-        if cand_key not in self.data:
-            self.data[field].visible = False
-        elif len(self.data[field].data) != len(self.data[cand_key].data):
-            self.data[field].visible = False
+        if not self._plottable(field, cand_key):
+            # self.data[field].visible = False
+            self.remove_plot(field)
         else:
             self.data[field].x_key = cand_key
+    
+    def _plottable(self, x_key, y_key):
+        if x_key in self.data and y_key in self.data:
+            return len(self.data[x_key].data) == len(self.data[y_key].data)
+        return False
     
     def get_ros_time(self):
         return self._multi_subscriber.get_time()
@@ -157,7 +161,7 @@ class Ros2Plot(RosPlotDataHandler):
     def min_max_visible_x(self):
         res_min = math.inf
         res_max = -math.inf
-        for plot_data in self.data.values():
+        for field,plot_data in self.data.items():
             if not plot_data.visible:
                 continue
             t_min = self.data[plot_data.x_key].minimum
@@ -262,6 +266,8 @@ class Ros2Plot(RosPlotDataHandler):
         self.data[field_name].visible = True
 
     def remove_plot(self, field_name):
+        if field_name in self._effects:
+            self._effects[field_name].e_clear()
         self.remove_effect(field_name)
         self.data[field_name].visible = False
 
@@ -349,12 +355,10 @@ class Ros2Plot(RosPlotDataHandler):
 
     def show_plots(self):
         for field in self.data:
-            if self.data[field].visible:
+            if self._plottable(field, self.data[field].x_key) and self.data[field].visible:
                 self.add_effect(field) 
             else:
-                if field in self._effects:
-                    self._effects[field].e_clear()
-                self.remove_effect(field)
+                self.remove_plot(field)
 
     def _handle_event(self, event):
         self._scene.process_event(event)
