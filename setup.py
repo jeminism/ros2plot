@@ -3,13 +3,14 @@ from setuptools import setup, find_packages
 package_name = 'ros2plot'
 setup(
     name=package_name,
-    version='0.1.2',
+    version='0.2.0',
     packages=find_packages(),
     install_requires=[
         "asciimatics>=1.15,<2.0",       # latest 1.x series; 2.x not yet released
         "numpy>=1.23,<2.0",             # 1.23+ works on py3.10–3.12; avoid 2.x unless needed
         "attrs>=21.4,<26.0",            # modern attrs for 3.10–3.12
         "PyYAML>=6.0,<7.0",             # latest stable, compatible with 3.10–3.12
+        "psutil>=5.8,<8.0",
     ],
     data_files=[
         # Install marker file in the package index

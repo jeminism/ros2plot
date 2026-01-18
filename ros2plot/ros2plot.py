@@ -6,19 +6,21 @@ from asciimatics.exceptions import ResizeScreenError, StopApplication
 
 from .effects import DrawOffsets, XAxis, YAxis, Plot, GraphInspector, GraphZoomSelector
 
-from .widgets import Legend, Selector, TextInput, TextLabel
+from .widgets import Legend, Selector, TextInput, TextLabel, PlotConfigurator
 
-from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD
+from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, CSV, CSV_DEFAULT_X_KEY, write_to_csv
 
 from .ros import MultiSubscriber
 
+from datetime import datetime
 import time
 import math
 
 
 class Ros2Plot(RosPlotDataHandler):
-    def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber):
+    def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber, log_stats:bool=False):
         super().__init__()
+        self._log_file = self._init_plot_stats_csv() if log_stats else None
         self._scene = Scene([], duration=-1)
         self._screen = screen
         self._screen.set_scenes([self._scene])
@@ -92,40 +94,50 @@ class Ros2Plot(RosPlotDataHandler):
         self._effects["selector"] = Selector(self._screen, self._x_key, self._screen.width//2, self._screen.height//2, self._screen.width//4, self._draw_offsets.y)
         self._effects["inspector"] = GraphInspector(self._screen, self._graph_config, self.data, offsets=self._draw_offsets)
         self._effects["zoom_selector"] = GraphZoomSelector(self._screen, self._graph_config, self._draw_offsets)
+        self._effects["configurator"] = PlotConfigurator(self._screen, self._screen.width//4, self._screen.height//2, 3*self._screen.width//4, self._draw_offsets.y)        
 
     
-    def initialize_plots(self, topic_filter: str = None, auto_add_display:bool=True):
+    def initialize_plots(self, topic_filters: list[str] = None, auto_add_display:bool=True):
         for field in self.data:
-            if topic_filter != None:
-                if topic_filter not in field:
+            if topic_filters != None:
+                if all(topic_filter not in field for topic_filter in topic_filters):
                     continue
 
-            if field == self.timestamp_key_from_field(field):
+            if field == self.get_x_key_from_field(field):
                 continue
 
             if field not in self._effects:
-                self.initialize_effect(field, Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets))
+                self.initialize_effect(field, Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets, debug_fn=self.update_info_message))
             else:
-                self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets)
+                self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets, debug_fn=self.update_info_message)
 
             self.data[field].colour = COLOURS_LIST[self._plot_count%NUM_COLOURS]
             self.set_plot_x_axis_key(field, self._x_key)
             
             self._plot_count += 1
             
-            if auto_add_display:
+            if auto_add_display and self._plottable(field, self.data[field].x_key):
                 self.add_plot(field)
     
     def set_x_axis_key(self, x_key=None):
-        if x_key != None and x_key not in self.data:
-            self.update_info_message(f"Tried to set '{x_key}' as the x axis data but this key does not exist")
-            return
         self._x_key = x_key
         for field in self.data:
             self.set_plot_x_axis_key(field, x_key)
 
     def set_plot_x_axis_key(self, field, x_key:str=None):
-        self.data[field].x_key = x_key if x_key != None else self.timestamp_key_from_field(field)
+        cand_key = self.get_x_key_from_field(field, x_key)
+        # if x_key is a full key 'topic_name/timestamp' then cand_key is 'field/topic_name/timestamp' and this will be filtered in the subsequent visibility setter
+        # if x_key is simply 'timestamp', then cand_key is 'field/timestamp'. so all topic / csv sources with timestamp field will be added.
+        if not self._plottable(field, cand_key):
+            # self.data[field].visible = False
+            self.remove_plot(field)
+        else:
+            self.data[field].x_key = cand_key
+    
+    def _plottable(self, x_key, y_key):
+        if x_key in self.data and y_key in self.data:
+            return len(self.data[x_key].data) == len(self.data[y_key].data)
+        return False
     
     def get_ros_time(self):
         return self._multi_subscriber.get_time()
@@ -136,8 +148,24 @@ class Ros2Plot(RosPlotDataHandler):
         for plot_data in self.data.values():
             if not plot_data.visible:
                 continue
-            valid = True
-            t_min, t_max = min_max(plot_data.data)
+            t_min = plot_data.minimum
+            t_max = plot_data.maximum
+            if t_min < res_min:
+                res_min = t_min
+            if t_max > res_max:
+                res_max = t_max
+        if res_min != math.inf:
+            return res_min, res_max  
+        return 0,0
+        
+    def min_max_visible_x(self):
+        res_min = math.inf
+        res_max = -math.inf
+        for field,plot_data in self.data.items():
+            if not plot_data.visible:
+                continue
+            t_min = self.data[plot_data.x_key].minimum
+            t_max = self.data[plot_data.x_key].maximum
             if t_min < res_min:
                 res_min = t_min
             if t_max > res_max:
@@ -157,13 +185,16 @@ class Ros2Plot(RosPlotDataHandler):
         if self._zoom_lock == False:
             if len(self.data) > 0 and len(next(iter(self.data.values())).data) > 0:
                 self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
-                if self._x_key == None:
-                    first_field_key = next(iter(self.data.keys()))
-                    first_time_data = self.data[self.timestamp_key_from_field(first_field_key)].data
-                    self._graph_config.x_min_value = first_time_data[0] if len(first_time_data) > 0 else self._start_time
-                    self._graph_config.x_max_value = self.get_ros_time()
-                else:
-                    self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data)
+                self._graph_config.x_min_value, self._graph_config.x_max_value = self.min_max_visible_x()
+                # if self._x_key == None:
+                #     first_field_key = next(iter(self.data.keys()))
+                #     first_time_data = self.data[self.get_x_key_from_field(first_field_key)].data.front()
+                #     self._graph_config.x_min_value = first_time_data if first_time_data != None else self._start_time
+                #     self._graph_config.x_max_value = self.get_ros_time()
+                # else:
+                #     # self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data.values())
+                #     self._graph_config.x_min_value = self.data[self._x_key].minimum
+                #     self._graph_config.x_max_value = self.data[self._x_key].maximum
             else:
                 self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
             
@@ -185,8 +216,10 @@ class Ros2Plot(RosPlotDataHandler):
             y_0 = self._graph_config.y_max_value
         elif self._graph_config.y_min_value > 0 and self._graph_config.y_max_value > 0:
             y_0 = self._graph_config.y_min_value
-        
-        self._graph_config.x = get_mapped_value(x_0, self._graph_config.x_max_value, self._graph_config.width-1, self._graph_config.x_min_value, 0)
+        try:
+            self._graph_config.x = get_mapped_value(x_0, self._graph_config.x_max_value, self._graph_config.width-1, self._graph_config.x_min_value, 0)
+        except Exception as e:
+            raise TypeError(f"{e}. val: {x_0}, min: {self._graph_config.x_min_value}, max: {self._graph_config.x_max_value}")
         self._graph_config.y = get_mapped_value(y_0, self._graph_config.y_max_value, 0, self._graph_config.y_min_value, self._graph_config.height-1)
         
     def initialize_effect(self, name, effect=None):
@@ -233,6 +266,8 @@ class Ros2Plot(RosPlotDataHandler):
         self.data[field_name].visible = True
 
     def remove_plot(self, field_name):
+        if field_name in self._effects:
+            self._effects[field_name].e_clear()
         self.remove_effect(field_name)
         self.data[field_name].visible = False
 
@@ -250,23 +285,34 @@ class Ros2Plot(RosPlotDataHandler):
             return
         try:
             args = get_args(ls_split, silent=True)
+            if args[CSV_DEFAULT_X_KEY] != None:
+                self.csv_default_x = args[CSV_DEFAULT_X_KEY]
             if args[TOPIC_NAME] != None:
                 self.add_subscriber(args[TOPIC_NAME], args[TOPIC_TYPE], args[FIELDS])
+            elif args[CSV] != None:
+                csv = args[CSV]
+                self.csv_to_plotdata(csv)
+                csv_field_filter = [csv] if args[FIELDS] == None else [csv+"/"+f for f in args[FIELDS]]
+                self.initialize_plots(topic_filters=csv_field_filter)
+
             if args[X_FIELD] != None:
                 x_key = None
                 if args[X_FIELD] not in ("Time", "time", "TIME", "default", "Default", "DEFAULT", "none", "None", "NONE"):
                     x_key = args[X_FIELD] if args[TOPIC_NAME]==None else args[TOPIC_NAME]+"/"+args[X_FIELD]
                 self.set_x_axis_key(x_key)
         except Exception as e:
-            self.update_info_message("Failed to parse input args")
+            self.update_info_message(f"Failed to parse input args. {e}")
 
     def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
         topic = topic
-        ok = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
+        msg_fields = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
         self.update_info_message(self._multi_subscriber.get_info_msg())
-        if ok:
+        # self._process_data_queue()
+        if msg_fields != None:
+            # initialize the plot data with the returned msg_fields from the multi_subscriber using the generic update method
+            self._process_topic_update(topic, None, msg_fields)
             # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
-            self.initialize_plots(topic_filter=topic, auto_add_display=True if field_filter == None else False)
+            self.initialize_plots(topic_filters=[topic], auto_add_display=True if field_filter == None else False)
             if field_filter != None:
                 fails = []
                 for field in field_filter:
@@ -284,6 +330,10 @@ class Ros2Plot(RosPlotDataHandler):
     def show_legend(self):
         self._effects["legend"].set_plots(self.data)
         self.add_effect("legend")
+
+    def show_configurator(self):
+        self._effects["configurator"].setup_data(self.data)
+        self.add_effect("configurator")
 
     def show_selector(self):
         self._effects["selector"].set_plots(self.data, self._x_key)
@@ -305,12 +355,10 @@ class Ros2Plot(RosPlotDataHandler):
 
     def show_plots(self):
         for field in self.data:
-            if self.data[field].visible:
+            if self._plottable(field, self.data[field].x_key) and self.data[field].visible:
                 self.add_effect(field) 
             else:
-                if field in self._effects:
-                    self._effects[field].e_clear()
-                self.remove_effect(field)
+                self.remove_plot(field)
 
     def _handle_event(self, event):
         self._scene.process_event(event)
@@ -348,33 +396,62 @@ class Ros2Plot(RosPlotDataHandler):
                     if self._effects["inspector"] in self._scene.effects:
                         self._effects["inspector"].e_clear()
                         self.remove_effect("inspector")
-                        # self.update_tooltip(self.tooltip())
                     else:
-                        # self._graph_config.pause = True
                         self.show_inspector()
                 elif event.key_code == ord('z'):
                     if self._effects["zoom_selector"] in self._scene.effects:
                         self._effects["zoom_selector"].e_clear()
                         self.remove_effect("zoom_selector")
-                        # self.update_tooltip(self.tooltip())
-                        # self._graph_config.pause = False
                     else:
-                        # self._graph_config.pause = True
                         self.show_zoom()
+                elif event.key_code == ord('c'):
+                    if self._effects["configurator"] in self._scene.effects:
+                        self._effects["configurator"].cleanup()
+                        self.remove_effect("configurator")
+                    else:
+                        self.show_configurator()
                 elif event.key_code == ord('x'):
                     self._zoom_lock = False
-                # else:
-                #     self.update_info_message(f"Unhandled Key press '{event.key_code}'")
+                    if self._effects["zoom_selector"] in self._scene.effects:
+                        self._effects["zoom_selector"].e_clear()
+                        self.remove_effect("zoom_selector")
+                    if self._effects["inspector"] in self._scene.effects:
+                        self._effects["inspector"].e_clear()
+                        self.remove_effect("inspector")
     
     def tooltip(self):
         return "p : Pause plot rendering | l : show legend | s : toggle plot visibility | i : open value inspector | z : open window resizer | / : open subscription configurator"        
 
+    def _filename_gen(self):
+        return "ros2plot_stats_"+ datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".csv"
+
+    def _init_plot_stats_csv(self):
+        filename = self._filename_gen()
+        headers = ["timestamp", "data_size", "num_plots", "frame_time", "screen_width", "screen_height"]
+        write_to_csv(filename, headers)
+        return filename
+
+    def write_plot_stats_to_csv(self, frame_time):
+        data_size = 0
+        num_plots = 0
+        for field,plot_data in self.data.items():
+            if not plot_data.visible:
+                continue
+            data_size += len(plot_data.data)
+            num_plots += 1
+        row_data = [self.get_ros_time(), data_size, num_plots, frame_time, self._screen.width, self._screen.height]
+        write_to_csv(self._log_file, row_data)
+            
+    
 
     def run(self, shutdown):
         while not shutdown:
+            self._process_data_queue()
             try:
+                start_time = time.time()
                 if not self._graph_config.pause:
                     self.update_graph_config()
+                update_time = time.time() - start_time
                 
                 if self._effects["zoom_selector"] in self._scene.effects:
                     self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
@@ -382,12 +459,27 @@ class Ros2Plot(RosPlotDataHandler):
                 if self._effects["inspector"] in self._scene.effects:
                     self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
 
-                self._screen.draw_next_frame()
+                draw_start_time = time.time()
+                with self._lock:
+                    self._screen.draw_next_frame()
+                draw_time = time.time() - draw_start_time
+                
+                clear_start_time = time.time()
+                self._clear_latest_data()
+                clear_time = time.time() - clear_start_time
+                
+                # self.update_info_message(f"frame time = {time.time() - start_time:.5f}. graph cfg time: {update_time:.5f}. draw time: {draw_time:.5f}. clear time: {clear_time:.5f}.")
+
+                if self._log_file != None:
+                    self.write_plot_stats_to_csv(time.time() - start_time)
+
                 # self._handle_event()
                 event = self._screen.get_event()
                 if not (isinstance(event, KeyboardEvent) or isinstance(event, MouseEvent)):
                     continue
                 self._handle_event(event)
+
+
 
             except StopApplication:
                 shutdown = True

@@ -6,21 +6,21 @@ class Grid:
         self._height = height
         self._grid = [None]*width*height
 
-    def to_index(self, x: int, y: int, width=None) -> int:
+    def to_index(self, x: int, y: int) -> int:
         if x < 0:
             raise ValueError(f"[Grid] x must be non-negative, got {x}")
         if y < 0:
             raise ValueError(f"[Grid] y must be non-negative, got {y}")
-        if width == None:
-            width = self._width
-        return x + y*width
+        # if width == None:
+        #     width = self._width
+        return x + y*self._width
     
-    def to_xy(self, index: int, width=None) -> tuple[int, int]:
+    def to_xy(self, index: int) -> tuple[int, int]:
         if index < 0:
             raise ValueError(f"[Grid] index must be non-negative, got {index}")
-        if width == None:
-            width = self._width
-        return index % width, index //width
+        # if width == None:
+        #     width = self._width
+        return index % self._width, index // self._width
 
     def clear(self):
         self._grid = [None]*self._width*self._height
@@ -38,3 +38,15 @@ class Grid:
             raise ValueError(f"[Grid] index out of range ({len(self._grid)}), got {index}")
         return self._grid[index]
 
+class VerticalGrid(Grid):
+    def to_index(self, x: int, y: int) -> int:
+        if x < 0:
+            raise ValueError(f"[Grid] x must be non-negative, got {x}")
+        if y < 0:
+            raise ValueError(f"[Grid] y must be non-negative, got {y}")
+        return y + x*self.height
+    
+    def to_xy(self, index: int) -> tuple[int, int]:
+        if index < 0:
+            raise ValueError(f"[Grid] index must be non-negative, got {index}")
+        return index // self._height, index % self._height

@@ -2,3 +2,4 @@ asciimatics==1.15.0
 numpy==1.26.0
 attrs==25.4.0
 PyYAML==6.0.3
+psutil==5.9.5
