@@ -29,9 +29,10 @@ class PlotData:
     visible: bool = attrs.field(default=False)
     interpolate: bool = attrs.field(default=True)
     high_def: bool = attrs.field(default=True)
+    plot_mean: bool = attrs.field(default=True)
     colour: int = attrs.field(default=COLOURS.DEFAULT)
-    minimum: int = attrs.field(default=math.inf)
-    maximum: int = attrs.field(default=-math.inf)
+    minimum: float = attrs.field(default=math.inf)
+    maximum: float = attrs.field(default=-math.inf)
 
 class RosPlotDataHandler:
     def __init__(self):

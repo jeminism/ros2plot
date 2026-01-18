@@ -16,6 +16,8 @@ class ScanlineRun:
     last: float = None
     minimum: float = math.inf
     maximum: float = -math.inf
+    mean: float = None
+    size: int = 0
 
 class Plot(GraphEffect):
     def __init__(self, screen: Screen, cfg: GraphConfigs, db: dict[str, PlotData], y_key:str=None, offsets: DrawOffsets=DrawOffsets(), debug_fn=None):
@@ -100,7 +102,7 @@ class Plot(GraphEffect):
         if self.x_bounds_changed() or self.scanline_shift_needed():
             # self._counts[0] += 1
             res = (self._cfg.x_max_value - self._cfg.x_min_value) / (self.plot_width-1)
-            self._scanline_x_max = (res * self.plot_width) + self._cfg.x_min_value # calculate scanlines on this max value. existing data should leave the last column free for new data
+            self._scanline_x_max = round(res * self.plot_width) + self._cfg.x_min_value # calculate scanlines on this max value. existing data should leave the last column free for new data
             self._scanlines.clear()
             self.generate_scanlines(y_data, x_data)
             generate_scanlines_time = time.time()-start_time
@@ -132,7 +134,10 @@ class Plot(GraphEffect):
         latest = self._scanlines[-1] if len(self._scanlines) > 0 else None
         for x,y in zip(x_data, y_data):
             # get the x index. this will be the column index.
-            x_index = get_mapped_value(x, self._scanline_x_max, width-1, self._cfg.x_min_value, 0)
+            try:
+               x_index = get_mapped_value(x, self._scanline_x_max, width-1, self._cfg.x_min_value, 0)
+            except Exception as e:
+                raise TypeError(f"{e}. val: {x}, min: {self._cfg.x_min_value}, max: {self._scanline_x_max}")
             if x_index > width-1 or x_index < 0:
                 continue
 
@@ -149,6 +154,12 @@ class Plot(GraphEffect):
                 latest.maximum = y
             if y < latest.minimum:
                 latest.minimum = y
+            if latest.size == 0:
+                latest.mean = y
+            else:
+                new_size = latest.size+1
+                latest.mean = (latest.mean*latest.size + y) / new_size
+            latest.size += 1
             latest.last = y
 
         # self.debug_print(f"{counts}, scanlines size: {len(self._scanlines)}. width: {width}")
@@ -184,17 +195,21 @@ class Plot(GraphEffect):
         prior_y = None
         changed_cells = []
         grid = self._grid
+        plot_mean_vals = self._plt.plot_mean
         for scanline in self._scanlines[self._last_scanline_index:]:
             x_index = scanline.column_index
+            if x_index > width-1 or x_index < 0:
+                continue
             # note, these y values are automatically clipped by the check in bresenham later
             y_first = get_mapped_value(scanline.first, self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1)
             y_last = get_mapped_value(scanline.last, self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1)
             y_min = get_mapped_value(scanline.minimum, self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1)
             y_max = get_mapped_value(scanline.maximum, self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1)
+            y_mean = get_mapped_value(scanline.mean, self._cfg.y_max_value, 0, self._cfg.y_min_value, height-1)
 
             # draw connecting line from the previous scanline.last
             if self._plt.interpolate and prior_x != None and prior_y != None:
-                for pt in bresenham(x_index, y_first, prior_x, prior_y):
+                for pt in bresenham(x_index, y_mean if plot_mean_vals else y_first, prior_x, prior_y):
                     if pt[0] > width-1 or pt[0] < 0 or pt[1] > height-1 or pt[1] < 0:
                         continue
                     i = grid.to_index(pt[0], pt[1])
@@ -202,17 +217,26 @@ class Plot(GraphEffect):
                         self._plot_cell_buffer.append((pt[0], pt[1]))
                     grid.set_value(i, True)
             
-            # draw line within column
-            for pt in bresenham(x_index, y_min, x_index, y_max):
-                if pt[0] > width-1 or pt[0] < 0 or pt[1] > height-1 or pt[1] < 0:
+            if plot_mean_vals:
+                if y_mean > height-1 or y_mean < 0:
                     continue
-                i = grid.to_index(pt[0], pt[1])
+                # draw mean vals
+                i = grid.to_index(x_index, y_mean)
                 if grid.at(i) != True:
-                    self._plot_cell_buffer.append((pt[0], pt[1]))
+                    self._plot_cell_buffer.append((x_index, y_mean))
                 grid.set_value(i, True)
+            else:
+                # draw full line within column
+                for pt in bresenham(x_index, y_min, x_index, y_max):
+                    if pt[1] > height-1 or pt[1] < 0:
+                        continue
+                    i = grid.to_index(pt[0], pt[1])
+                    if grid.at(i) != True:
+                        self._plot_cell_buffer.append((pt[0], pt[1]))
+                    grid.set_value(i, True)
 
             prior_x = x_index
-            prior_y = y_last
+            prior_y = y_mean if plot_mean_vals else y_last
         
         #update the last scanline index done
         self._last_scanline_index = len(self._scanlines)-1
@@ -256,6 +280,6 @@ class Plot(GraphEffect):
                 self.e_print("*", i, j, self._plt.colour)
 
         last_x_index = self._scanlines[-1].column_index//2 if self._plt.high_def else self._scanlines[-1].column_index
-        last_y_index = get_mapped_value(self._scanlines[-1].last, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
+        last_y_index = get_mapped_value(self._scanlines[-1].mean if self._plt.plot_mean else self._scanlines[-1].last, self._cfg.y_max_value, 0, self._cfg.y_min_value, self._cfg.height)
         if last_y_index < self._cfg.height+1 and last_y_index >= 0:
             self.e_print(f"{self._scanlines[-1].last:3.2f}", last_x_index+1, last_y_index, self._plt.colour)
