@@ -4,10 +4,11 @@
 
 A terminal-based, real-time plotting tool for ROS2 topics. Ros2Plot automatically introspects ROS2 message types to extract numeric fields (int, float, bool) and plots them as time series. It uses asciimatics for the UI and braille characters for high-definition plots, supporting custom x-axes and interactive controls.
 
-Ros2Plot is highly optimized internally, and designed to deal with large data sizes. When new data is appended, Plots only process the new entries, re-using internal buffers for rendering. Buffers are refreshed when axes are resized beyond thresholds to rpeserve visual accuracy.
+Ros2Plot is highly optimized internally, and designed to deal with large data sizes. When new data is appended, Plots only process the new entries, re-using internal buffers for rendering. Buffers are only refreshed when axes are resized beyond thresholds to preserve visual accuracy.
 
 It also provides some baseline memory guarantees (if you leave it running in a terminal forever...) by pruning *FIFO* the stored topic data to cap total memory usage at 2% of **free memory**. 
 
+By default, all fields will be plotted against a default X-axis key. For topic data, it will use the timestamp at which the callback triggered. For csv data, it will attempt to look for a 'timestamp' label in the CSV. Custom x-axis fields can be selected either via the Selector UI or by specifying a field via the manual input. If the selected X-field is incompatible wth any existing Plot (y and x data size mismatches) then the Plot will automatically be marked invisible.
 
 ## Demo
 Here's a quick demo showcasing key features of runtime subscription, Plot value inspection & Plot Display region resizing.
