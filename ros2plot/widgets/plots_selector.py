@@ -65,3 +65,56 @@ class Selector(GenericFrame):
             c._value = plot_data[field].visible
             self._layout.add_widget(c)
         self.fix()
+
+class PlotConfigurator(GenericFrame):
+    def __init__(self, screen, width=None, height=None, x=0, y=0):
+        super().__init__(screen, width, height, x, y)
+        self.set_theme("monochrome")
+        self._layout = Layout([1])
+        self.add_layout(self._layout)
+
+    # re-setup every time because we want to show the latest values in case they're changed elsewhere. 
+    def setup_data(self, plot_data: dict[str, PlotData]):
+        self._layout.clear_widgets()
+        ref_cfg = None
+        if len(plot_data) > 0:
+            ref_cfg = next(iter(plot_data.values())) # all configs restricted to have the same values, so just reference the first one only
+
+        # this implementation isnt very nice, but lazy to do better
+        def toggle_interpolate():
+            for field in plot_data:
+                plot_data[field].interpolate = not plot_data[field].interpolate
+                
+        def toggle_high_def():
+            for field in plot_data:
+                plot_data[field].high_def = not plot_data[field].high_def
+        
+        def toggle_mean_plots():
+            for field in plot_data:
+                plot_data[field].plot_mean = not plot_data[field].plot_mean
+
+        interpolate = self._layout.add_widget(CheckBox("Interpolate Across Columns", on_change=toggle_interpolate))
+        interpolate._value = ref_cfg.interpolate if ref_cfg != None else False
+
+        hd = self._layout.add_widget(CheckBox("High Definition Plots", on_change=toggle_high_def))
+        hd._value = ref_cfg.high_def if ref_cfg != None else False
+
+        mean = self._layout.add_widget(CheckBox("Plot Mean Values", on_change=toggle_mean_plots))
+        mean._value = ref_cfg.plot_mean if ref_cfg != None else False
+
+        self.fix()
+
+        # interpolate = self._layout.add_widget(CheckBox("Interpolate Across Columns"))
+        # interpolate._value = ref_cfg.interpolate if ref_cfg != None else False
+
+        # hd = self._layout.add_widget(CheckBox("High Definition Plots"))
+        # hd._value = ref_cfg.high_def if ref_cfg != None else False
+
+        # mean = self._layout.add_widget(CheckBox("Plot Mean Values"))
+        # mean._value = ref_cfg.plot_mean if ref_cfg != None else False
+        
+        # self.fix()
+        
+        # interpolate._on_change = toggle_interpolate
+        # hd._on_change = toggle_high_def
+        # mean._on_change = toggle_mean_plots
