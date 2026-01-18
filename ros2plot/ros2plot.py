@@ -280,7 +280,7 @@ class Ros2Plot(RosPlotDataHandler):
         try:
             args = get_args(ls_split, silent=True)
             if args[CSV_DEFAULT_X_KEY] != None:
-                display.csv_default_x = args[CSV_DEFAULT_X_KEY]
+                self.csv_default_x = args[CSV_DEFAULT_X_KEY]
             if args[TOPIC_NAME] != None:
                 self.add_subscriber(args[TOPIC_NAME], args[TOPIC_TYPE], args[FIELDS])
             elif args[CSV] != None:

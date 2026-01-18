@@ -46,19 +46,15 @@ def main():
                 if csv != None:
                     display.csv_to_plotdata(csv)
                     csv_field_filter = [csv] if args[FIELDS] == None else [csv+"/"+f for f in args[FIELDS]]
-                    display.initialize_plots(topic_filters=csv_field_filter)
                     if csv_default_x_key != None:
-                        display.csv_default_x = csv_default_x_key
+                        display.default_csv_x = csv_default_x_key
                     if x_key != None:
                         display.set_x_axis_key(x_key)
-                    else:
-                        if len(display.data) > 0:
-                            first_field_key = next(iter(display.data.keys()))
-                            display.set_x_axis_key(first_field_key)
+                    display.initialize_plots(topic_filters=csv_field_filter)
                 elif topic_name != None:
-                    display.add_subscriber(topic_name, topic_type, fields)
                     if x_key != None:
                         display.set_x_axis_key(topic_name+"/"+x_key)
+                    display.add_subscriber(topic_name, topic_type, fields)
             else:
                 display.set_screen(screen)
 
