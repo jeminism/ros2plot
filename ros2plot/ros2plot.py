@@ -12,6 +12,7 @@ from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value
 
 from .ros import MultiSubscriber
 
+from datetime import datetime
 import time
 import math
 
@@ -418,7 +419,7 @@ class Ros2Plot(RosPlotDataHandler):
         return "ros2plot_stats_"+ datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".csv"
 
     def _init_plot_stats_csv(self):
-        filename = filename_gen()
+        filename = self._filename_gen()
         headers = ["timestamp", "data_size", "num_plots", "frame_time", "screen_width", "screen_height"]
         write_to_csv(filename, headers)
         return filename

@@ -44,7 +44,7 @@ def main():
             if display == None:
                 display = Ros2Plot(screen, 3, 2, m_sub, log_stats)
                 if csv != None:
-                    display.csv_to_plotdata(csv, display.data)
+                    display.csv_to_plotdata(csv)
                     csv_field_filter = [csv] if args[FIELDS] == None else [csv+"/"+f for f in args[FIELDS]]
                     display.initialize_plots(topic_filters=csv_field_filter)
                     if csv_default_x_key != None:

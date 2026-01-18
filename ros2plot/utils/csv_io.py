@@ -1,7 +1,6 @@
 
 
 import csv
-from datetime import datetime
 
 
 def write_to_csv(filename, data):
