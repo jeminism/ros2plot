@@ -14,8 +14,13 @@ CSV_TIMESTAMP_KEY="timestamp"
 
 @attrs.define
 class GraphConfigs:
-    x: int = attrs.field(default=0) #origin position, where axis intersect
-    y: int = attrs.field(default=0)
+    x: float = attrs.field(default=0.0) #origin position, where axis intersect
+    y: float = attrs.field(default=0.0)
+    z: float = attrs.field(default=0.0)
+    roll: float = attrs.field(default=0.0)
+    pitch: float = attrs.field(default=0.0)
+    yaw: float = attrs.field(default=0.0)
+    
     width: int = attrs.field(default=0) #width of the plot area, in pixels
     height: int = attrs.field(default=0) #height of the plot area, in pixels
     y_min_value: int = attrs.field(default=0) # y value corresponding to pixel (x, height-1)
@@ -28,6 +33,8 @@ class GraphConfigs:
 class PlotData:
     data: MemoryBoundedDeque = attrs.field(factory=MemoryBoundedDeque) #bound to 1% available memory
     x_key: str = attrs.field(default="")
+    z_key: str = attrs.field(default="")
+    colour_transformer_key: str = attrs.field(default="")
     visible: bool = attrs.field(default=False)
     interpolate: bool = attrs.field(default=True)
     high_def: bool = attrs.field(default=True)
