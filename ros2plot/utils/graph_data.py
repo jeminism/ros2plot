@@ -11,6 +11,8 @@ import math
 
 TIMESTAMP_KEY="/callback_timestamp"
 CSV_TIMESTAMP_KEY="timestamp"
+2D=0
+3D=1
 
 @attrs.define
 class GraphConfigs:
@@ -29,12 +31,12 @@ class GraphConfigs:
     x_max_value: int = attrs.field(default=0) # x value corresponding to pixel (width-1, y)
     pause: bool = attrs.field(default=False) # flag to dictate if the effect should pause drawing or no
 
+    render_mode: int = attrs.field(default=2D)
+
 @attrs.define
 class PlotData:
     data: MemoryBoundedDeque = attrs.field(factory=MemoryBoundedDeque) #bound to 1% available memory
     x_key: str = attrs.field(default="")
-    z_key: str = attrs.field(default="")
-    colour_transformer_key: str = attrs.field(default="")
     visible: bool = attrs.field(default=False)
     interpolate: bool = attrs.field(default=True)
     high_def: bool = attrs.field(default=True)
@@ -42,6 +44,18 @@ class PlotData:
     colour: int = attrs.field(default=COLOURS.DEFAULT)
     minimum: float = attrs.field(default=math.inf)
     maximum: float = attrs.field(default=-math.inf)
+
+@attrs.define
+class PlotData3D:
+    x_key: str = attrs.field(default="")
+    y_key: str = attrs.field(default="")
+    z_key: str = attrs.field(default="")
+    colour_transformer_key: str = attrs.field(default="")
+    visible: bool = attrs.field(default=False)
+    interpolate: bool = attrs.field(default=True)
+    high_def: bool = attrs.field(default=True)
+    plot_mean: bool = attrs.field(default=False)
+    colour: int = attrs.field(default=COLOURS.DEFAULT)
 
 class RosPlotDataHandler:
     def __init__(self, csv_x=CSV_TIMESTAMP_KEY):
@@ -89,10 +103,18 @@ class RosPlotDataHandler:
             return None
         return self._data[name]
 
-    def get_ros_data_handler(self, topic_name):
+    def get_ros_data_handler(self, topic_name, topic_type):
         # dynamically generate data field handlers. this is to be passed into the anysub object so that it will dynamically append to the fields in _data on callback
+
+        message_handler = get_message_handler(topic_type) #processor fn
+        message_processor = message_handler.processor
+        plot_3d = message_handler.get_3d_plot_data()
+        
+        if plot_3d != None:
+            self._data[topic_name] = plot_3d #initialize the 3d plot here
+
         def ros_handler(node: Node, update_data: dict):
-            self._queue.put((topic_name, node.get_time(), update_data)) #store tuple of the topic name and the latest update data
+            self._queue.put((topic_name, node.get_time(), message_processor(update_data))) #store tuple of the topic name and the latest update data
         return ros_handler
 
     def _add_to_data(self, key, value=None):

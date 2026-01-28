@@ -36,8 +36,8 @@ class IntrospectiveSubscriber():
         except AttributeError:
             # NOT A ROS MSG 
             # is terminal branch
-            if isinstance(msg, NUMERIC_TYPES):
-                result_dict[path] = None if no_data else msg
+            # if isinstance(msg, NUMERIC_TYPES):
+            result_dict[path] = None if no_data else msg
 
 class MultiSubscriber(Node):
     def __init__(self):

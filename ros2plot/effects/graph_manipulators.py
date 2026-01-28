@@ -8,6 +8,36 @@ from asciimatics.screen import Screen
 from asciimatics.event import KeyboardEvent, MouseEvent
 
 import math
+import numpy as np
+
+#numpy helpers
+
+def get_rotation_matrix(roll, pitch, yaw):
+    cr, sr = np.cos(roll), np.sin(roll)
+    cp, sp = np.cos(pitch), np.sin(pitch)
+    cy, sy = np.cos(yaw), np.sin(yaw)
+
+    Rx = np.array([
+        [1, 0, 0],
+        [0, cr, -sr],
+        [0, sr, cr]
+    ])
+
+    Ry = np.array([
+        [cp, 0, sp],
+        [0, 1, 0],
+        [-sp, 0, cp]
+    ])
+
+    Rz = np.array([
+        [cy, -sy, 0],
+        [sy, cy, 0],
+        [0, 0, 1]
+    ])
+
+    return Rz @ Ry @ Rx
+
+CAMERA_DELTA = 1.0
 
 #helper class
 class GraphPoint():
@@ -117,40 +147,98 @@ class GraphZoomSelector(GraphEffect):
     def resize_plot(self):
         self._cfg.y_min_value, self._cfg.y_max_value = min_max([self.pt_1.y, self.pt_2.y])
         self._cfg.x_min_value, self._cfg.x_max_value = min_max([self.pt_1.x, self.pt_2.x])
-        
+
+    ### 3D Functions
+    def move_x(self, delta):
+        self._cfg.x += delta
+
+    def move_y(self, delta):
+        self._cfg.y += delta
+
+    def move_z(self, delta):
+        self._cfg.z += delta
+
+    def move_roll(self, delta):
+        self._cfg.roll += delta
+
+    def move_pitch(self, delta):
+        self._cfg.pitch += delta
+
+    def move_yaw(self, delta):
+        self._cfg.yaw += delta
+
+    def move_in_plane(self, dx=0.0, dy=0.0, dz=0.0):
+        local_delta = np.array([dx, dy, dz])
+        global_delta = get_rotation_matrix(self._cfg.roll, self._cfg.pitch, self._cfg.yaw).local_delta
+        self.move_x(global_delta[0])
+        self.move_y(global_delta[1])
+        self.move_z(global_delta[2])
+
 
     def process_event(self, event):
         if isinstance(event, KeyboardEvent):
-            if event.key_code == KEY_CODES.ENTER: # ENTER
-                self.resize_plot()
-                return None
-            if event.key_code == KEY_CODES.TAB: # TAB
-                self._focus = (self._focus+1)%3
-                return None
             if event.key_code == KEY_CODES.LEFT: # LEFT ARROW
-                self.scroll_down_x(self._cfg.width/2)
+                self.move_in_plane(dx=-CAMERA_DELTA)
                 return None
             if event.key_code == KEY_CODES.RIGHT: # RIGHT ARROW
-                self.scroll_up_x(self._cfg.width/2)
-                return None
-            if event.key_code == KEY_CODES.CTRL_LEFT: # CTRL + LEFT ARROW
-                self.scroll_down_x(self._cfg.width*10)
-                return None
-            if event.key_code == KEY_CODES.CTRL_RIGHT: # CTRL + RIGHT ARROW
-                self.scroll_up_x(self._cfg.width*10)
+                self.move_in_plane(dx=CAMERA_DELTA)
                 return None
             if event.key_code == KEY_CODES.UP: # UP ARROW
-                self.scroll_up_y(self._cfg.height)
+                self.move_in_plane(dy=CAMERA_DELTA)
                 return None
             if event.key_code == KEY_CODES.DOWN: # DOWN ARROW
-                self.scroll_down_y(self._cfg.height)
+                self.move_in_plane(dy=-CAMERA_DELTA)
                 return None
             if event.key_code == KEY_CODES.CTRL_UP: # CTRL + UP ARROW
-                self.scroll_up_y(self._cfg.height*6)
+                self.move_in_plane(dz=CAMERA_DELTA)
                 return None
             if event.key_code == KEY_CODES.CTRL_DOWN: # CTRL + DOWN ARROW
-                self.scroll_down_y(self._cfg.height*6)
+                self.move_in_plane(dz=-CAMERA_DELTA)
                 return None
+            if event.key_code == ord('i'): # CTRL + DOWN ARROW
+                self.move_pitch(0.1)
+                return None
+            if event.key_code == ord('k'): # CTRL + DOWN ARROW
+                self.move_pitch(-0.1)
+                return None
+            if event.key_code == ord('j'): # CTRL + DOWN ARROW
+                self.move_yaw(0.1)
+                return None
+            if event.key_code == ord('l'): # CTRL + DOWN ARROW
+                self.move_yaw(-0.1)
+                return None
+
+
+            # if event.key_code == KEY_CODES.ENTER: # ENTER
+            #     self.resize_plot()
+            #     return None
+            # if event.key_code == KEY_CODES.TAB: # TAB
+            #     self._focus = (self._focus+1)%3
+            #     return None
+            # if event.key_code == KEY_CODES.LEFT: # LEFT ARROW
+            #     self.scroll_down_x(self._cfg.width/2)
+            #     return None
+            # if event.key_code == KEY_CODES.RIGHT: # RIGHT ARROW
+            #     self.scroll_up_x(self._cfg.width/2)
+            #     return None
+            # if event.key_code == KEY_CODES.CTRL_LEFT: # CTRL + LEFT ARROW
+            #     self.scroll_down_x(self._cfg.width*10)
+            #     return None
+            # if event.key_code == KEY_CODES.CTRL_RIGHT: # CTRL + RIGHT ARROW
+            #     self.scroll_up_x(self._cfg.width*10)
+            #     return None
+            # if event.key_code == KEY_CODES.UP: # UP ARROW
+            #     self.scroll_up_y(self._cfg.height)
+            #     return None
+            # if event.key_code == KEY_CODES.DOWN: # DOWN ARROW
+            #     self.scroll_down_y(self._cfg.height)
+            #     return None
+            # if event.key_code == KEY_CODES.CTRL_UP: # CTRL + UP ARROW
+            #     self.scroll_up_y(self._cfg.height*6)
+            #     return None
+            # if event.key_code == KEY_CODES.CTRL_DOWN: # CTRL + DOWN ARROW
+            #     self.scroll_down_y(self._cfg.height*6)
+            #     return None
 
         return event
 

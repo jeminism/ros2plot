@@ -1,0 +1,514 @@
+
+from asciimatics.screen import Screen
+from asciimatics.scene import Scene
+from asciimatics.event import KeyboardEvent, MouseEvent
+from asciimatics.exceptions import ResizeScreenError, StopApplication
+
+from .effects import DrawOffsets, XAxis, YAxis, Plot, GraphInspector, GraphZoomSelector
+
+from .widgets import Legend, Selector, TextInput, TextLabel, PlotConfigurator
+
+from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, CSV, CSV_DEFAULT_X_KEY, write_to_csv
+
+from .ros import MultiSubscriber
+
+from datetime import datetime
+import time
+import math
+
+
+class Ros2Plot(RosPlotDataHandler):
+    def __init__(self, screen: Screen, header_bar_height:int, padding: int, multi_subscriber: MultiSubscriber, log_stats:bool=False):
+        super().__init__()
+        self._log_file = self._init_plot_stats_csv() if log_stats else None
+        self._scene = Scene([], duration=-1)
+        self._screen = screen
+        self._screen.set_scenes([self._scene])
+        self._padding = padding
+        self._header_bar_height = header_bar_height
+        self._effects = {}
+        self._graph_config = GraphConfigs()
+        self._draw_offsets = DrawOffsets()
+
+        self._multi_subscriber = multi_subscriber
+        self._start_time = self._multi_subscriber.get_time() #sync with ros time
+        self._x_key = None
+        self._zoom_lock = False
+
+        self._plot_count = 0
+
+        self.update_draw_offsets(padding + 6, padding + header_bar_height+1)
+
+        self.setup_info_bar(self._screen.width-2*padding, header_bar_height, padding, padding)
+        # self.setup_tooltip(self._screen.width-2*padding, 3, padding, self._screen.height-3-padding)
+        self.setup_plot()
+        
+        self.add_base_effects()
+        # self.update_tooltip(self.tooltip())
+        self.update_graph_config()
+        self.update_info_message("Ros2Plot Initialized!")
+    
+    def set_screen(self, screen):
+        readd = []
+        # for name in self._effects:
+        #     if self._effects[name] in self._scene.effects:
+        #         readd.append(name)
+
+        self._screen = screen
+        self._scene = Scene([], duration=-1)
+        self._screen.set_scenes([self._scene])
+        self.setup_info_bar(self._screen.width-2*self._padding, self._header_bar_height, self._padding, self._padding)
+        self.setup_plot()
+        self.add_base_effects()
+
+        self._plot_count = 0
+        self.initialize_plots(auto_add_display=False)
+        self.show_plots()
+        
+        # for e in readd:
+        #     self.add_effect(e)
+
+        self.update_info_message("Ros2Plot RE-Initialized!")
+        self._screen.refresh()
+
+    def add_base_effects(self):
+        self.add_effect("header_label")
+        self.add_effect("x_axis")
+        self.add_effect("y_axis")
+        # self.add_effect("tooltip")
+
+
+    def setup_info_bar(self, width, height, x, y):
+        self._effects["header_label"] = TextLabel(self._screen, width, height, x, y)
+        self._effects["header_input"] = TextInput(self._screen, width, height, x, y)
+    
+    # def setup_tooltip(self, width, height, x, y):
+    #     self._effects["tooltip"] = TextLabel(self._screen, width, height, x, y)
+
+    def setup_plot(self):
+        # self._effects["y_axis"] = YAxis(self._screen, self._graph_config, self._draw_offsets)
+        # self._effects["x_axis"] = XAxis(self._screen, self._graph_config, self._draw_offsets)
+        w = min(self._screen.width // 2, 20)
+        h = min(self._screen.height // 2, 10)
+        # self._effects["legend"] = Legend(self._screen, w, h, self._screen.width-w-1, self._draw_offsets.y)
+        self._effects["selector"] = Selector(self._screen, self._x_key, self._screen.width//2, self._screen.height//2, self._screen.width//4, self._draw_offsets.y)
+        self._effects["inspector"] = GraphInspector(self._screen, self._graph_config, self.data, offsets=self._draw_offsets)
+        self._effects["zoom_selector"] = GraphZoomSelector(self._screen, self._graph_config, self._draw_offsets)
+        self._effects["configurator"] = PlotConfigurator(self._screen, self._screen.width//4, self._screen.height//2, 3*self._screen.width//4, self._draw_offsets.y)        
+
+    
+    def initialize_plots(self, topic_filters: list[str] = None, auto_add_display:bool=True):
+        for field in self.data:
+            if topic_filters != None:
+                if all(topic_filter not in field for topic_filter in topic_filters):
+                    continue
+
+            if field == self.get_x_key_from_field(field):
+                continue
+
+            if isinstance(self.data[field], PlotData):
+                if field not in self._effects:
+                    self.initialize_effect(field, Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets, debug_fn=self.update_info_message))
+                else:
+                    self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets, debug_fn=self.update_info_message)
+
+                self.set_plot_x_axis_key(field, self._x_key)
+                if auto_add_display and self._cfg.render_mode==2D and self._plottable(field, self.data[field].x_key):
+                    self.add_plot(field)
+            
+            elif isinstance(self.data[field], PlotData3D):
+                if field not in self._effects:
+                    self.initialize_effect(field, Plot3D(self._screen, self._graph_config, self.data, offsets=self._draw_offsets, debug_fn=self.update_info_message))
+                else:
+                    self._effects[field] = Plot3D(self._screen, self._graph_config, self.data, offsets=self._draw_offsets, debug_fn=self.update_info_message)
+
+                if auto_add_display and self._cfg.render_mode==3D:
+                    self.add_plot(field)
+            
+                self.initialize_effect(field, Plot3D(self._screen, self._graph_config, self.data, offsets=self._draw_offsets, debug_fn=self.update_info_message))
+            
+            
+            self.data[field].colour = COLOURS_LIST[self._plot_count%NUM_COLOURS]
+            self._plot_count += 1
+            
+    
+    def set_x_axis_key(self, x_key=None):
+        self._x_key = x_key
+        for field in self.data:
+            self.set_plot_x_axis_key(field, x_key)
+
+    def set_plot_x_axis_key(self, field, x_key:str=None):
+        cand_key = self.get_x_key_from_field(field, x_key)
+        # if x_key is a full key 'topic_name/timestamp' then cand_key is 'field/topic_name/timestamp' and this will be filtered in the subsequent visibility setter
+        # if x_key is simply 'timestamp', then cand_key is 'field/timestamp'. so all topic / csv sources with timestamp field will be added.
+        if not self._plottable(field, cand_key):
+            # self.data[field].visible = False
+            self.remove_plot(field)
+        else:
+            self.data[field].x_key = cand_key
+    
+    def _plottable(self, x_key, y_key, z_key="", co):
+        if self._cfg.plot_mode == 2D:
+            if x_key in self.data and y_key in self.data:
+                return len(self.data[x_key].data) == len(self.data[y_key].data)
+        elif self._cfg.plot_mode == 3D:
+
+        return False
+    
+    def get_ros_time(self):
+        return self._multi_subscriber.get_time()
+        
+    def min_max_visible_y(self):
+        res_min = math.inf
+        res_max = -math.inf
+        for plot_data in self.data.values():
+            if not plot_data.visible:
+                continue
+            t_min = plot_data.minimum
+            t_max = plot_data.maximum
+            if t_min < res_min:
+                res_min = t_min
+            if t_max > res_max:
+                res_max = t_max
+        if res_min != math.inf:
+            return res_min, res_max  
+        return 0,0
+        
+    def min_max_visible_x(self):
+        res_min = math.inf
+        res_max = -math.inf
+        for field,plot_data in self.data.items():
+            if not plot_data.visible:
+                continue
+            t_min = self.data[plot_data.x_key].minimum
+            t_max = self.data[plot_data.x_key].maximum
+            if t_min < res_min:
+                res_min = t_min
+            if t_max > res_max:
+                res_max = t_max
+        if res_min != math.inf:
+            return res_min, res_max  
+        return 0,0
+
+    def update_draw_offsets(self, x, y):
+        self._draw_offsets.x = x # 6 is standard padding to allow for y value axis labels
+        self._draw_offsets.y = y
+
+    def update_graph_config(self):
+        self._graph_config.width = self._screen.width-self._draw_offsets.x-self._padding-6 # 6 is the size limit of value labels exetending past the max width of the graph
+        self._graph_config.height = self._screen.height-self._draw_offsets.y-self._padding 
+
+        if self._zoom_lock == False:
+            if len(self.data) > 0 and len(next(iter(self.data.values())).data) > 0:
+                self._graph_config.y_min_value, self._graph_config.y_max_value = self.min_max_visible_y()
+                self._graph_config.x_min_value, self._graph_config.x_max_value = self.min_max_visible_x()
+                # if self._x_key == None:
+                #     first_field_key = next(iter(self.data.keys()))
+                #     first_time_data = self.data[self.get_x_key_from_field(first_field_key)].data.front()
+                #     self._graph_config.x_min_value = first_time_data if first_time_data != None else self._start_time
+                #     self._graph_config.x_max_value = self.get_ros_time()
+                # else:
+                #     # self._graph_config.x_min_value, self._graph_config.x_max_value = min_max(self.data[self._x_key].data.values())
+                #     self._graph_config.x_min_value = self.data[self._x_key].minimum
+                #     self._graph_config.x_max_value = self.data[self._x_key].maximum
+            else:
+                self._graph_config.y_min_value = self._graph_config.y_max_value = self._graph_config.y_min_value = self._graph_config.y_max_value = 0
+            
+            if self._graph_config.y_min_value == self._graph_config.y_max_value:
+                self._graph_config.y_min_value -= 1
+                self._graph_config.y_max_value += 1
+            if self._graph_config.x_min_value == self._graph_config.x_max_value:
+                self._graph_config.x_min_value -= 1
+                self._graph_config.x_max_value += 1
+
+        x_0 = 0 
+        if self._graph_config.x_min_value < 0 and self._graph_config.x_max_value < 0:
+            x_0 = self._graph_config.x_max_value
+        elif self._graph_config.x_min_value > 0 and self._graph_config.x_max_value > 0:
+            x_0 = self._graph_config.x_min_value
+
+        y_0 = 0 
+        if self._graph_config.y_min_value < 0 and self._graph_config.y_max_value < 0:
+            y_0 = self._graph_config.y_max_value
+        elif self._graph_config.y_min_value > 0 and self._graph_config.y_max_value > 0:
+            y_0 = self._graph_config.y_min_value
+        try:
+            self._graph_config.x = get_mapped_value(x_0, self._graph_config.x_max_value, self._graph_config.width-1, self._graph_config.x_min_value, 0)
+        except Exception as e:
+            raise TypeError(f"{e}. val: {x_0}, min: {self._graph_config.x_min_value}, max: {self._graph_config.x_max_value}")
+        self._graph_config.y = get_mapped_value(y_0, self._graph_config.y_max_value, 0, self._graph_config.y_min_value, self._graph_config.height-1)
+        
+    def initialize_effect(self, name, effect=None):
+        if name in self._effects:
+            if self._effects[name] != None:
+                self.update_info_message(f"[NON-UNIQUE EFFECT NAME] Tried to initialize an effect '{name}' but this effect already exists")
+                return
+
+        self._effects[name] = effect
+    
+    def delete_effect(self, name):
+        if name in self._effects:
+            if self._effects[name] in self._scene.effects:
+                self.update_info_message(f"[INVALID DELETE] Unable to delete the effect '{name}' because it is present in the scene")
+
+            if self._effects[name] != None:
+                self._effects[name] = None
+
+    def add_effect(self, name):
+        if name not in self._effects or self._effects[name] == None:
+            # self.update_info_message(f"[NON-EXISTENT EFFECT] Tried to add an effect '{name}' to the scene but this effect doesnt exist")
+            return
+        
+        if self._effects[name] in self._scene.effects:
+            #self.update_info_message(f"[EFFECT IN SCENE] Tried to add an effect '{name}' to the scene but this effect is already in the scene")
+            return
+        
+        self._scene.add_effect(self._effects[name])
+
+    def remove_effect(self, name):
+        if name not in self._effects:
+            # self.update_info_message(f"[NON-EXISTENT EFFECT] Tried to remove an effect '{name}' from the scene but this effect doesnt exist")
+            return
+        
+        if self._effects[name] not in self._scene.effects:
+            #self.update_info_message(f"[EFFECT NOT IN SCENE] Tried to remove an effect '{name}' from the scene but this effect is not in the scene")
+            return
+           
+        self._scene.remove_effect(self._effects[name])
+    
+    #specializations for plots
+    def add_plot(self, field_name):
+        self.add_effect(field_name)
+        self.data[field_name].visible = True
+
+    def remove_plot(self, field_name):
+        if field_name in self._effects:
+            self._effects[field_name].e_clear()
+        self.remove_effect(field_name)
+        self.data[field_name].visible = False
+
+    def update_info_message(self, msg):
+        self._effects["header_label"].set_value(msg)
+    
+    # def update_tooltip(self, msg):
+    #     self._effects["tooltip"].set_value(msg)
+
+    def handle_text_input(self, input_val: str):
+        ls_split = input_val.split(" ")
+        n = len(ls_split)
+        if n == 0:
+            # empty input do nothing
+            return
+        try:
+            args = get_args(ls_split, silent=True)
+            if args[CSV_DEFAULT_X_KEY] != None:
+                self.csv_default_x = args[CSV_DEFAULT_X_KEY]
+            if args[TOPIC_NAME] != None:
+                self.add_subscriber(args[TOPIC_NAME], args[TOPIC_TYPE], args[FIELDS])
+            elif args[CSV] != None:
+                csv = args[CSV]
+                self.csv_to_plotdata(csv)
+                csv_field_filter = [csv] if args[FIELDS] == None else [csv+"/"+f for f in args[FIELDS]]
+                self.initialize_plots(topic_filters=csv_field_filter)
+
+            if args[X_FIELD] != None:
+                x_key = None
+                if args[X_FIELD] not in ("Time", "time", "TIME", "default", "Default", "DEFAULT", "none", "None", "NONE"):
+                    x_key = args[X_FIELD] if args[TOPIC_NAME]==None else args[TOPIC_NAME]+"/"+args[X_FIELD]
+                self.set_x_axis_key(x_key)
+        except Exception as e:
+            self.update_info_message(f"Failed to parse input args. {e}")
+
+    def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
+        topic = topic
+        msg_fields = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
+        self.update_info_message(self._multi_subscriber.get_info_msg())
+        # self._process_data_queue()
+        if msg_fields != None:
+            # initialize the plot data with the returned msg_fields from the multi_subscriber using the generic update method
+            self._process_topic_update(topic, None, msg_fields)
+            # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
+            self.initialize_plots(topic_filters=[topic], auto_add_display=True if field_filter == None else False)
+            if field_filter != None:
+                fails = []
+                for field in field_filter:
+                    found = False
+                    field_name = topic+"/"+field
+                    for topic_field in self._effects:
+                        if field_name in topic_field:
+                            self.add_plot(topic_field)
+                            found = True
+                    if not found:
+                        fails.append(field_name)
+                if len(fails) > 0:
+                    self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
+
+    def show_legend(self):
+        self._effects["legend"].set_plots(self.data)
+        self.add_effect("legend")
+
+    def show_configurator(self):
+        self._effects["configurator"].setup_data(self.data)
+        self.add_effect("configurator")
+
+    def show_selector(self):
+        self._effects["selector"].set_plots(self.data, self._x_key)
+        self.add_effect("selector")
+        
+    def show_inspector(self):
+        self._effects["inspector"].set_x_value()
+        # self.update_tooltip(self._effects["inspector"].tooltip())
+        self._zoom_lock = True
+        self.add_effect("inspector")
+
+    def show_zoom(self):
+        self.update_info_message(f"[ZOOM SELECTOR] {self._effects["zoom_selector"].get_points_string()}")
+        # self.update_tooltip(self._effects["zoom_selector"].tooltip())
+        # lock the config update for automatic axis resizing. we do NOT want to pause because theres no reason to stop the plotting when adjusting window size and location
+        self._zoom_lock = True
+        self._effects["zoom_selector"].reset()
+        self.add_effect("zoom_selector")
+
+    def show_plots(self):
+        for field in self.data:
+            if isinstance(self.data[field], PlotData):
+                if self._cfg.render_mode == 2D and self._plottable(field, self.data[field].x_key) and self.data[field].visible:
+                    self.add_effect(field) 
+                else:
+                    self.remove_plot(field)
+            elif isinstance(self.data[field], PlotData3D):
+                if self._cfg.render_mode == 3D and self.data[field].visible:
+                    self.add_effect(field) 
+                else:
+                    self.remove_plot(field)
+
+
+    def _handle_event(self, event):
+        self._scene.process_event(event)
+        self._handle_display_controls(event)
+
+    def _handle_display_controls(self, event):
+        if isinstance(event, KeyboardEvent):
+            if self._effects["header_input"] in self._scene.effects:
+                if event.key_code in (10, 13):
+                    self._effects["header_input"].cleanup()
+                    self.remove_effect("header_input")
+                    self.handle_text_input(self._effects["header_input"].value())
+            elif self._effects["selector"] in self._scene.effects:
+                if event.key_code == ord('s'):
+                    self._effects["selector"].cleanup()
+                    self.remove_effect("selector")
+                    self.show_plots()
+                    self.set_x_axis_key(self._effects["selector"].get_x_field_selection())
+            else:
+                if event.key_code == ord('p'):
+                    if self._effects["inspector"] not in self._scene.effects:
+                        self._graph_config.pause = not self._graph_config.pause
+                elif event.key_code == ord('l'):
+                    if self._effects["legend"] in self._scene.effects:
+                        self._effects["legend"].cleanup()
+                        self.remove_effect("legend")
+                    else:
+                        self.show_legend()
+                elif event.key_code == ord('s'):
+                    self.show_selector()
+                elif event.key_code == ord('/'):
+                    self._effects["header_input"].clear()
+                    self.add_effect("header_input")
+                elif event.key_code == ord('i'):
+                    if self._effects["inspector"] in self._scene.effects:
+                        self._effects["inspector"].e_clear()
+                        self.remove_effect("inspector")
+                    else:
+                        self.show_inspector()
+                elif event.key_code == ord('z'):
+                    if self._effects["zoom_selector"] in self._scene.effects:
+                        self._effects["zoom_selector"].e_clear()
+                        self.remove_effect("zoom_selector")
+                    else:
+                        self.show_zoom()
+                elif event.key_code == ord('c'):
+                    if self._effects["configurator"] in self._scene.effects:
+                        self._effects["configurator"].cleanup()
+                        self.remove_effect("configurator")
+                    else:
+                        self.show_configurator()
+                elif event.key_code == ord('x'):
+                    self._zoom_lock = False
+                    if self._effects["zoom_selector"] in self._scene.effects:
+                        self._effects["zoom_selector"].e_clear()
+                        self.remove_effect("zoom_selector")
+                    if self._effects["inspector"] in self._scene.effects:
+                        self._effects["inspector"].e_clear()
+                        self.remove_effect("inspector")
+    
+    def tooltip(self):
+        return "p : Pause plot rendering | l : show legend | s : toggle plot visibility | i : open value inspector | z : open window resizer | / : open subscription configurator"        
+
+    def _filename_gen(self):
+        return "ros2plot_stats_"+ datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".csv"
+
+    def _init_plot_stats_csv(self):
+        filename = self._filename_gen()
+        headers = ["timestamp", "data_size", "num_plots", "frame_time", "screen_width", "screen_height"]
+        write_to_csv(filename, headers)
+        return filename
+
+    def write_plot_stats_to_csv(self, frame_time):
+        data_size = 0
+        num_plots = 0
+        for field,plot_data in self.data.items():
+            if not plot_data.visible:
+                continue
+            data_size += len(plot_data.data)
+            num_plots += 1
+        row_data = [self.get_ros_time(), data_size, num_plots, frame_time, self._screen.width, self._screen.height]
+        write_to_csv(self._log_file, row_data)
+            
+    
+
+    def run(self, shutdown):
+        while not shutdown:
+            self._process_data_queue()
+            try:
+                start_time = time.time()
+                if not self._graph_config.pause:
+                    self.update_graph_config()
+                update_time = time.time() - start_time
+                
+                if self._effects["zoom_selector"] in self._scene.effects:
+                    self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
+
+                if self._effects["inspector"] in self._scene.effects:
+                    self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
+
+                draw_start_time = time.time()
+                with self._lock:
+                    self._screen.draw_next_frame()
+                draw_time = time.time() - draw_start_time
+                
+                clear_start_time = time.time()
+                self._clear_latest_data()
+                clear_time = time.time() - clear_start_time
+                
+                # self.update_info_message(f"frame time = {time.time() - start_time:.5f}. graph cfg time: {update_time:.5f}. draw time: {draw_time:.5f}. clear time: {clear_time:.5f}.")
+
+                if self._log_file != None:
+                    self.write_plot_stats_to_csv(time.time() - start_time)
+
+                # self._handle_event()
+                event = self._screen.get_event()
+                if not (isinstance(event, KeyboardEvent) or isinstance(event, MouseEvent)):
+                    continue
+                self._handle_event(event)
+
+
+
+            except StopApplication:
+                shutdown = True
+                break
+            except ResizeScreenError:
+                pass
+            if self._screen.has_resized():
+                break
+            time.sleep(0.033)

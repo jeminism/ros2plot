@@ -72,7 +72,7 @@ class Frustum:
         return get_mapped_value(x, -x_limit, 0, x_limit, width-1), get_mapped_value(y, -y_limit, height-1, y_limit, 0)
 
 class Plot3D(GraphEffect):
-    def __init__(self, screen: Screen, cfg: GraphConfigs, db: dict[str, PlotData], y_key:str=None, offsets: DrawOffsets=DrawOffsets(), debug_fn=None):
+    def __init__(self, screen: Screen, cfg: GraphConfigs, db: dict[str, PlotData], offsets: DrawOffsets=DrawOffsets(), debug_fn=None):
         super().__init__(screen, cfg, offsets)
         self._db = db #dictionary db of field vs field data
         self._plt = None
