@@ -31,3 +31,5 @@ ros2plot/widgets/__pycache__/
 ros2plot.egg-info/
 
 ros2plot/effects/__pycache__/
+
+ros2plot/utils/message_handler_definitions/__pycache__/
