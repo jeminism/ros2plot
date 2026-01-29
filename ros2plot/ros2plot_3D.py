@@ -8,7 +8,7 @@ from .effects import DrawOffsets, XAxis, YAxis, Plot, GraphInspector, GraphZoomS
 
 from .widgets import Legend, Selector, TextInput, TextLabel, PlotConfigurator
 
-from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, CSV, CSV_DEFAULT_X_KEY, write_to_csv
+from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, CSV, CSV_DEFAULT_X_KEY, write_to_csv, TWO_D, THREE_D
 
 from .ros import MultiSubscriber
 
@@ -113,7 +113,7 @@ class Ros2Plot(RosPlotDataHandler):
                     self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets, debug_fn=self.update_info_message)
 
                 self.set_plot_x_axis_key(field, self._x_key)
-                if auto_add_display and self._cfg.render_mode==2D and self._plottable(field, self.data[field].x_key):
+                if auto_add_display and self._cfg.render_mode==TWO_D and self._plottable(field, self.data[field].x_key):
                     self.add_plot(field)
             
             elif isinstance(self.data[field], PlotData3D):
@@ -122,7 +122,7 @@ class Ros2Plot(RosPlotDataHandler):
                 else:
                     self._effects[field] = Plot3D(self._screen, self._graph_config, self.data, offsets=self._draw_offsets, debug_fn=self.update_info_message)
 
-                if auto_add_display and self._cfg.render_mode==3D:
+                if auto_add_display and self._cfg.render_mode==THREE_D:
                     self.add_plot(field)
             
                 self.initialize_effect(field, Plot3D(self._screen, self._graph_config, self.data, offsets=self._draw_offsets, debug_fn=self.update_info_message))
@@ -138,20 +138,23 @@ class Ros2Plot(RosPlotDataHandler):
             self.set_plot_x_axis_key(field, x_key)
 
     def set_plot_x_axis_key(self, field, x_key:str=None):
-        cand_key = self.get_x_key_from_field(field, x_key)
         # if x_key is a full key 'topic_name/timestamp' then cand_key is 'field/topic_name/timestamp' and this will be filtered in the subsequent visibility setter
         # if x_key is simply 'timestamp', then cand_key is 'field/timestamp'. so all topic / csv sources with timestamp field will be added.
+        if self._cfg.render_mode == THREE_D:
+            return
+        cand_key = self.get_x_key_from_field(field, x_key)
         if not self._plottable(field, cand_key):
             # self.data[field].visible = False
             self.remove_plot(field)
         else:
             self.data[field].x_key = cand_key
     
-    def _plottable(self, x_key, y_key, z_key="", co):
-        if self._cfg.plot_mode == 2D:
+    def _plottable(self, x_key, y_key):
+        if self._cfg.plot_mode == TWO_D:
             if x_key in self.data and y_key in self.data:
                 return len(self.data[x_key].data) == len(self.data[y_key].data)
-        elif self._cfg.plot_mode == 3D:
+        elif self._cfg.plot_mode == THREE_D:
+            return True
 
         return False
     
@@ -320,28 +323,30 @@ class Ros2Plot(RosPlotDataHandler):
             self.update_info_message(f"Failed to parse input args. {e}")
 
     def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
-        topic = topic
-        msg_fields = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
+        topic, topic_type = self._multi_subscriber.validate_topic(topic, topic_type)
+        res = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic, topic_type), topic, topic_type)
         self.update_info_message(self._multi_subscriber.get_info_msg())
-        # self._process_data_queue()
-        if msg_fields != None:
-            # initialize the plot data with the returned msg_fields from the multi_subscriber using the generic update method
-            self._process_topic_update(topic, None, msg_fields)
-            # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
-            self.initialize_plots(topic_filters=[topic], auto_add_display=True if field_filter == None else False)
-            if field_filter != None:
-                fails = []
-                for field in field_filter:
-                    found = False
-                    field_name = topic+"/"+field
-                    for topic_field in self._effects:
-                        if field_name in topic_field:
-                            self.add_plot(topic_field)
-                            found = True
-                    if not found:
-                        fails.append(field_name)
-                if len(fails) > 0:
-                    self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
+        if not res:
+            return
+
+        # initialize the plot data
+        self.init_plot_data(topic, topic_type) 
+
+        # initialize plot effects
+        self.initialize_plots(topic_filters=[topic], auto_add_display=True if field_filter == None else False)
+        if field_filter != None:
+            fails = []
+            for field in field_filter:
+                found = False
+                field_name = topic+"/"+field
+                for topic_field in self._effects:
+                    if field_name in topic_field:
+                        self.add_plot(topic_field)
+                        found = True
+                if not found:
+                    fails.append(field_name)
+            if len(fails) > 0:
+                self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
 
     def show_legend(self):
         self._effects["legend"].set_plots(self.data)
@@ -372,12 +377,12 @@ class Ros2Plot(RosPlotDataHandler):
     def show_plots(self):
         for field in self.data:
             if isinstance(self.data[field], PlotData):
-                if self._cfg.render_mode == 2D and self._plottable(field, self.data[field].x_key) and self.data[field].visible:
+                if self._cfg.render_mode == TWO_D and self._plottable(field, self.data[field].x_key) and self.data[field].visible:
                     self.add_effect(field) 
                 else:
                     self.remove_plot(field)
             elif isinstance(self.data[field], PlotData3D):
-                if self._cfg.render_mode == 3D and self.data[field].visible:
+                if self._cfg.render_mode == THREE_D and self.data[field].visible:
                     self.add_effect(field) 
                 else:
                     self.remove_plot(field)
