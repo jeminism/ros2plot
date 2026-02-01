@@ -4,11 +4,11 @@ from asciimatics.scene import Scene
 from asciimatics.event import KeyboardEvent, MouseEvent
 from asciimatics.exceptions import ResizeScreenError, StopApplication
 
-from .effects import DrawOffsets, XAxis, YAxis, Plot, GraphInspector, GraphZoomSelector
+from .effects import DrawOffsets, XAxis, YAxis, Plot, Plot3D, GraphInspector, GraphZoomSelector
 
 from .widgets import Legend, Selector, TextInput, TextLabel, PlotConfigurator
 
-from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, CSV, CSV_DEFAULT_X_KEY, write_to_csv, TWO_D, THREE_D
+from .utils import COLOURS, COLOURS_LIST, NUM_COLOURS, min_max, get_mapped_value, GraphConfigs, PlotData, PlotData3D, RosPlotDataHandler, get_args, TOPIC_NAME, TOPIC_TYPE, FIELDS, X_FIELD, CSV, CSV_DEFAULT_X_KEY, write_to_csv, TWO_D, THREE_D
 
 from .ros import MultiSubscriber
 
@@ -113,19 +113,18 @@ class Ros2Plot(RosPlotDataHandler):
                     self._effects[field] = Plot(self._screen, self._graph_config, self.data, y_key=field, offsets=self._draw_offsets, debug_fn=self.update_info_message)
 
                 self.set_plot_x_axis_key(field, self._x_key)
-                if auto_add_display and self._cfg.render_mode==TWO_D and self._plottable(field, self.data[field].x_key):
+                if auto_add_display and self._graph_config.render_mode==TWO_D and self._plottable(field, self.data[field].x_key):
                     self.add_plot(field)
             
             elif isinstance(self.data[field], PlotData3D):
                 if field not in self._effects:
-                    self.initialize_effect(field, Plot3D(self._screen, self._graph_config, self.data, offsets=self._draw_offsets, debug_fn=self.update_info_message))
+                    self.initialize_effect(field, Plot3D(self._screen, self._graph_config, self.data, field, offsets=self._draw_offsets, debug_fn=self.update_info_message))
                 else:
-                    self._effects[field] = Plot3D(self._screen, self._graph_config, self.data, offsets=self._draw_offsets, debug_fn=self.update_info_message)
+                    self._effects[field] = Plot3D(self._screen, self._graph_config, self.data, field, offsets=self._draw_offsets, debug_fn=self.update_info_message)
 
-                if auto_add_display and self._cfg.render_mode==THREE_D:
+                if auto_add_display and self._graph_config.render_mode==THREE_D:
                     self.add_plot(field)
             
-                self.initialize_effect(field, Plot3D(self._screen, self._graph_config, self.data, offsets=self._draw_offsets, debug_fn=self.update_info_message))
             
             
             self.data[field].colour = COLOURS_LIST[self._plot_count%NUM_COLOURS]
@@ -140,7 +139,7 @@ class Ros2Plot(RosPlotDataHandler):
     def set_plot_x_axis_key(self, field, x_key:str=None):
         # if x_key is a full key 'topic_name/timestamp' then cand_key is 'field/topic_name/timestamp' and this will be filtered in the subsequent visibility setter
         # if x_key is simply 'timestamp', then cand_key is 'field/timestamp'. so all topic / csv sources with timestamp field will be added.
-        if self._cfg.render_mode == THREE_D:
+        if self._graph_config.render_mode == THREE_D:
             return
         cand_key = self.get_x_key_from_field(field, x_key)
         if not self._plottable(field, cand_key):
@@ -150,10 +149,10 @@ class Ros2Plot(RosPlotDataHandler):
             self.data[field].x_key = cand_key
     
     def _plottable(self, x_key, y_key):
-        if self._cfg.plot_mode == TWO_D:
+        if self._graph_config.render_mode == TWO_D:
             if x_key in self.data and y_key in self.data:
                 return len(self.data[x_key].data) == len(self.data[y_key].data)
-        elif self._cfg.plot_mode == THREE_D:
+        elif self._graph_config.render_mode == THREE_D:
             return True
 
         return False
@@ -377,12 +376,12 @@ class Ros2Plot(RosPlotDataHandler):
     def show_plots(self):
         for field in self.data:
             if isinstance(self.data[field], PlotData):
-                if self._cfg.render_mode == TWO_D and self._plottable(field, self.data[field].x_key) and self.data[field].visible:
+                if self._graph_config.render_mode == TWO_D and self._plottable(field, self.data[field].x_key) and self.data[field].visible:
                     self.add_effect(field) 
                 else:
                     self.remove_plot(field)
             elif isinstance(self.data[field], PlotData3D):
-                if self._cfg.render_mode == THREE_D and self.data[field].visible:
+                if self._graph_config.render_mode == THREE_D and self.data[field].visible:
                     self.add_effect(field) 
                 else:
                     self.remove_plot(field)

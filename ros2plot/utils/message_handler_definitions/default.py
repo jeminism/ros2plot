@@ -5,8 +5,11 @@ def processor(msg) -> dict:
     introspect(msg, "", res)
     return res
 
-def plotdata_3d():
-    return None
+# def plotdata_3d():
+#     return None
+
+def is_3d_plottable():
+    return False
 
 def plottable_fields_2d(msg):
     res = {}

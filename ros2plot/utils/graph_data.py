@@ -3,6 +3,7 @@ from . import colour_palette as COLOURS
 from .memory_bounded_deque import MemoryBoundedDeque
 import attrs
 import math
+import numpy as np
 
 TWO_D=0
 THREE_D=1
@@ -24,7 +25,7 @@ class GraphConfigs:
     x_max_value: int = attrs.field(default=0) # x value corresponding to pixel (width-1, y)
     pause: bool = attrs.field(default=False) # flag to dictate if the effect should pause drawing or no
 
-    render_mode: int = attrs.field(default=0)
+    render_mode: int = attrs.field(default=THREE_D)
 
 
 @attrs.define
@@ -45,12 +46,13 @@ class PlotData:
 
 @attrs.define
 class PlotData3D:
-    x_key: str = attrs.field(default="")
-    y_key: str = attrs.field(default="")
-    z_key: str = attrs.field(default="")
+    data: np.ndarray = attrs.field(factory=lambda: np.empty((0, 3), dtype=np.float32))
+    # x_key: str = attrs.field(default="")
+    # y_key: str = attrs.field(default="")
+    # z_key: str = attrs.field(default="")
     colour_transformer_key: str = attrs.field(default="")
     visible: bool = attrs.field(default=False)
     interpolate: bool = attrs.field(default=True)
-    high_def: bool = attrs.field(default=True)
+    high_def: bool = attrs.field(default=False)
     plot_mean: bool = attrs.field(default=False)
     colour: int = attrs.field(default=COLOURS.DEFAULT)

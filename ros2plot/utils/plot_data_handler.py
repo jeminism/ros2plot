@@ -1,8 +1,11 @@
 
 from rclpy.node import Node
 from .csv_io import read_from_csv
-from .message_handlers import get_message_processor, get_message_3d_plotdata, get_message_2d_plottable_fields
+from .message_handlers import get_message_processor, is_3d_plottable, get_message_2d_plottable_fields
+from .message_handler_definitions import FIELD_3D
+from .graph_data import GraphConfigs, PlotData, PlotData3D
 
+import numpy as np
 import queue
 import threading
 
@@ -67,23 +70,31 @@ class RosPlotDataHandler:
     def _add_to_data(self, key, value=None):
         if key not in self._data:
             raise ValueError(f"Tried to add data point for field '{key}', but this field is not present in the existing data.")
-        if value != None:
+        if isinstance(self._data[key], PlotData3D):
+            if not isinstance(value, np.ndarray):
+                raise TypeError(f"Error while updating 3D data for topic '{key}'. Expected numpy array")
+            self._data[key].data = value # this is an np.ndarray
+        else:
+            if value == None:
+                return
             self._data[key].data.append(value)
             if value < self._data[key].minimum:
                 self._data[key].minimum = value 
             if value > self._data[key].maximum:
                 self._data[key].maximum = value 
-    
+
     def init_plot_data(self, topic_name, topic_type):
         # handle 2d fields
         fields = get_message_2d_plottable_fields(topic_type)
         for f in fields:
             key = topic_name + "/" + f
             self._init_plot_data_2d(key)
+        self._init_plot_data_2d(topic_name+TIMESTAMP_KEY)
         # handle 3d
-        plt_3d = get_message_3d_plotdata(topic_type)
-        if plt_3d != None:
-            self._data[topic_name] = plt_3d
+        # plt_3d = get_message_3d_plotdata(topic_type)
+        # if plt_3d != None:
+        if is_3d_plottable(topic_type):
+            self._data[topic_name] = PlotData3D()
             
     def _init_plot_data_2d(self, key):
         self._data[key] = PlotData()
@@ -91,11 +102,15 @@ class RosPlotDataHandler:
 
 
     def _process_topic_update(self, topic_name, timestamp, update_data):
-        v = None
+        # v = None
         for key, value in update_data.items():
-            self._add_to_data(topic_name + key, value)
-            v=value
-        self._add_to_data(topic_name+TIMESTAMP_KEY, timestamp if v!=None else None)
+            if key == FIELD_3D:
+                self._add_to_data(topic_name, value)
+            else:
+                self._add_to_data(topic_name + key, value)
+            # v=value
+        # self._add_to_data(topic_name+TIMESTAMP_KEY, timestamp if v!=None else None)
+        self._add_to_data(topic_name+TIMESTAMP_KEY, timestamp)
 
     
     def _process_data_queue(self):
@@ -107,7 +122,8 @@ class RosPlotDataHandler:
     def _clear_latest_data(self):
         with self._lock:
             for key in self._data:
-                self._data[key].data.clear_latest()
+                if isinstance(self._data[key], PlotData):
+                    self._data[key].data.clear_latest()
     
     def csv_to_plotdata(self, filename):
         try:

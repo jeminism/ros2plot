@@ -1,5 +1,6 @@
 
-from .message_handlers import get_message_handler, get_message_processor, get_message_3d_plotdata, get_message_2d_plottable_fields
+from .message_handlers import get_message_handler, get_message_processor, is_3d_plottable, get_message_2d_plottable_fields
+from .message_handler_definitions import FIELD_3D
 from .colour_palette import COLOURS_LIST, NUM_COLOURS
 from .graph_math import min_max, get_mapped_value, bresenham
 from .graph_data import GraphConfigs, PlotData, PlotData3D, TWO_D, THREE_D
@@ -39,5 +40,6 @@ __all__=["COLOURS",
         "write_to_csv",
         "get_message_handler",
         "get_message_processor",
-        "get_message_3d_plotdata",
-        "get_message_2d_plottable_fields"]
+        "is_3d_plottable",
+        "get_message_2d_plottable_fields",
+        "FIELD_3D"]

@@ -23,7 +23,7 @@ class IntrospectiveSubscriber():
         # data = {}
         # self.introspect(msg, "", data)    
         # self._data_handler(self._node, data)
-        self._data_handler(self._node.get_time(), data)
+        self._data_handler(self._node.get_time(), msg)
 
 class MultiSubscriber(Node):
     def __init__(self):
@@ -44,7 +44,7 @@ class MultiSubscriber(Node):
                 return False
 
         try:
-            tname, ttype = self.validate_topic(topic_name, topic_type)
+            tname, ttype = self.validate_topic(topic_name, None)
             self._subscribers[topic_name] = IntrospectiveSubscriber(self, tname, ttype, handler_fn)
             self._info_msg = f"Successfully added subscriber to topic '{tname}' of type '{ttype}'"
             return True
