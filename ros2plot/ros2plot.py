@@ -346,7 +346,7 @@ class Ros2Plot(RosPlotDataHandler):
         self.add_effect("inspector")
 
     def show_zoom(self):
-        self.update_info_message(f"[ZOOM SELECTOR] {self._effects["zoom_selector"].get_points_string()}")
+        self.update_info_message(f'[ZOOM SELECTOR] {self._effects["zoom_selector"].get_points_string()}')
         # self.update_tooltip(self._effects["zoom_selector"].tooltip())
         # lock the config update for automatic axis resizing. we do NOT want to pause because theres no reason to stop the plotting when adjusting window size and location
         self._zoom_lock = True
@@ -454,10 +454,10 @@ class Ros2Plot(RosPlotDataHandler):
                 update_time = time.time() - start_time
                 
                 if self._effects["zoom_selector"] in self._scene.effects:
-                    self.update_info_message(f"[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}")
+                    self.update_info_message(f'[ZOOM INSPECTOR] {self._effects["zoom_selector"].get_points_string()}')
 
                 if self._effects["inspector"] in self._scene.effects:
-                    self.update_info_message(f"[INSPECTION] X = {self._effects["inspector"].get_x_value():f}")
+                    self.update_info_message(f'[INSPECTION] X = {self._effects["inspector"].get_x_value():f}')
 
                 draw_start_time = time.time()
                 with self._lock:

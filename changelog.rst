@@ -2,6 +2,10 @@
 ## ros2plot Changelog ##
 ########################
 
+0.2.1
+---
+* Fix f-formatting issue with nested quotes when printing debug info for zoom selector and inspector widgets
+
 0.2.0
 ---
 * Added LICENSE.md
