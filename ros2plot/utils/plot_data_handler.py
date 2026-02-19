@@ -1,5 +1,6 @@
 
 from .graph_data import GraphConfigs, PlotData
+from ..ros import get_message_processor, get_message_2d_plottable_fields
 
 from rclpy.node import Node
 from .csv_io import read_from_csv
@@ -56,16 +57,31 @@ class RosPlotDataHandler:
             return None
         return self._data[name]
 
-    def get_ros_data_handler(self, topic_name):
+    def get_ros_data_handler(self, topic_type, topic_name):
         # dynamically generate data field handlers. this is to be passed into the anysub object so that it will dynamically append to the fields in _data on callback
-        def ros_handler(node: Node, update_data: dict):
-            self._queue.put((topic_name, node.get_time(), update_data)) #store tuple of the topic name and the latest update data
+        processor_fn = get_message_processor(topic_type)
+        def ros_handler(timestamp, msg):
+            self._queue.put((topic_name, timestamp, processor_fn(msg))) #store tuple of the topic name and the latest update data
         return ros_handler
-
-    def _add_to_data(self, key, value=None):
+    
+    def init_ros_message_fields(self, topic_type, topic_name):
+        cb_timestamp_field = topic_name + TIMESTAMP_KEY
+        self._init_data(cb_timestamp_field)
+        
+        plottable_fields_2d = get_message_2d_plottable_fields(topic_type)
+        for f in plottable_fields_2d:
+            full_field = topic_name + f
+            self._init_data(full_field)
+    
+    def _init_data(self, key):
         if key not in self._data:
             self._data[key] = PlotData()
             self._data[key].data.set_configs(max_fraction=0.02, trim_fraction=0.05)
+
+    def _add_to_data(self, key, value=None):
+        if key not in self._data:
+            # return
+            raise KeyError(f"Tried to perform field update for field '{key}', but this key does not exist! Current list of known fields: {self._data.keys()}")
         if value != None:
             self._data[key].data.append(value)
             if value < self._data[key].minimum:
