@@ -2,6 +2,10 @@
 ## ros2plot Changelog ##
 ########################
 
+0.2.2
+---
+* Implement dynamic QOS in subscriber
+
 0.2.1
 ---
 * Fix f-formatting issue with nested quotes when printing debug info for zoom selector and inspector widgets
