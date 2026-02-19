@@ -1,6 +1,8 @@
 
 from rclpy.node import Node
 from rosidl_runtime_py.utilities import get_message
+from rclpy.qos import QoSProfile
+from rclpy.qos import ReliabilityPolicy, DurabilityPolicy
 
 from typing import Callable, Dict, Any
 
@@ -17,7 +19,7 @@ class IntrospectiveSubscriber():
                                         topic_type,
                                         topic_name,
                                         self.listener_callback,
-                                        10)
+                                        self.get_qos(topic_name))
 
     def listener_callback(self, msg):
         data = {}
@@ -38,6 +40,42 @@ class IntrospectiveSubscriber():
             # is terminal branch
             if isinstance(msg, NUMERIC_TYPES):
                 result_dict[path] = None if no_data else msg
+
+    def get_qos(self, topic_name):
+        topic_info = self._node.get_publishers_info_by_topic(topic_name)
+        n = len(topic_info)
+        if n == 0:
+            # default if not yet existing.
+            return QoSProfile(
+                        reliability=ReliabilityPolicy.BEST_EFFORT,
+                        durability=DurabilityPolicy.VOLATILE,
+                        depth=10
+                    )
+        elif n == 1:
+            # return topic_info[0].qos_profile # not sure why this fails
+            return QoSProfile(
+                        reliability=topic_info[0].qos_profile.reliability,
+                        durability=topic_info[0].qos_profile.durability,
+                        depth=topic_info[0].qos_profile.depth
+                    )
+        else:
+            reliability = ReliabilityPolicy.RELIABLE
+            durability = DurabilityPolicy.TRANSIENT_LOCAL
+            depth = 1
+            for info in topic_info:
+                qos = info.qos_profile
+                # tune the final QOS for compatibility
+                if qos.reliability == ReliabilityPolicy.BEST_EFFORT:
+                    reliability = ReliabilityPolicy.BEST_EFFORT
+                if qos.durability == DurabilityPolicy.VOLATILE:
+                    durability = DurabilityPolicy.VOLATILE
+                if qos.depth > depth:
+                    depth = qos.depth
+            return QoSProfile(
+                        reliability=reliability,
+                        durability=durability,
+                        depth=depth
+                    )
 
 class MultiSubscriber(Node):
     def __init__(self):
@@ -108,7 +146,7 @@ class MultiSubscriber(Node):
         if found_type == None:
             raise ValueError(f"Unable to determine type of Topic '{topic_name}'")
 
-        return topic_name, found_type
+        return topic_name, found_type       
 
 #####################################
 
