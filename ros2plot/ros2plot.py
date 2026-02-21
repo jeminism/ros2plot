@@ -303,29 +303,35 @@ class Ros2Plot(RosPlotDataHandler):
         except Exception as e:
             self.update_info_message(f"Failed to parse input args. {e}")
 
-    def add_subscriber(self, topic:str, topic_type:str=None, field_filter:list=None):
-        topic = topic
-        msg_fields = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic), topic, topic_type)
+    def add_subscriber(self, _topic:str, _topic_type:str=None, field_filter:list=None):
+        try:
+            topic_name, topic_type = self._multi_subscriber.validate_topic(_topic, _topic_type)
+        except Exception as e:
+            self.update_info_message(f"Input topic '{_topic}' is invalid! {e}")
+            return
+
+        res = self._multi_subscriber.add_subscriber(self.get_ros_data_handler(topic_type, topic_name), topic_name, topic_type)
         self.update_info_message(self._multi_subscriber.get_info_msg())
-        # self._process_data_queue()
-        if msg_fields != None:
-            # initialize the plot data with the returned msg_fields from the multi_subscriber using the generic update method
-            self._process_topic_update(topic, None, msg_fields)
-            # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
-            self.initialize_plots(topic_filters=[topic], auto_add_display=True if field_filter == None else False)
-            if field_filter != None:
-                fails = []
-                for field in field_filter:
-                    found = False
-                    field_name = topic+"/"+field
-                    for topic_field in self._effects:
-                        if field_name in topic_field:
-                            self.add_plot(topic_field)
-                            found = True
-                    if not found:
-                        fails.append(field_name)
-                if len(fails) > 0:
-                    self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
+    
+        if res == False:
+            return
+
+        self.init_ros_message_fields(topic_type, topic_name)
+        # TODO: This can be remade more generic by just having all fields be added via filter method. a none filter should just match against the topic name
+        self.initialize_plots(topic_filters=[topic_name], auto_add_display=True if field_filter == None else False)
+        if field_filter != None:
+            fails = []
+            for field in field_filter:
+                found = False
+                field_name = topic_name+"/"+field
+                for topic_field in self._effects:
+                    if field_name in topic_field:
+                        self.add_plot(topic_field)
+                        found = True
+                if not found:
+                    fails.append(field_name)
+            if len(fails) > 0:
+                self.update_info_message(f"Tried to add plot for fields with '{fails}' but these are invalid fields in topic '{topic}'")
 
     def show_legend(self):
         self._effects["legend"].set_plots(self.data)

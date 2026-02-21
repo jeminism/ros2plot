@@ -6,9 +6,6 @@ from rclpy.qos import ReliabilityPolicy, DurabilityPolicy
 
 from typing import Callable, Dict, Any
 
-NUMERIC_TYPES = (int, float, bool)
-IGNORE_FIELDS = ["/header"] #ignore first, integrate with timestamp later
-
 
 class IntrospectiveSubscriber():
     def __init__(self, node: Node, topic_name, topic_type, data_handler: Callable[[Node, Dict[str, Any]], None]):
@@ -22,24 +19,8 @@ class IntrospectiveSubscriber():
                                         self.get_qos(topic_name))
 
     def listener_callback(self, msg):
-        data = {}
-        self.introspect(msg, "", data)    
-        self._data_handler(self._node, data)
+        self._data_handler(self._node.get_time(), msg)
         
-    def introspect(self, msg, path, result_dict, no_data: bool=False):
-        try:
-            fft = msg.get_fields_and_field_types() #use this to implicitly determine if msg is a ROS msg instead of a field.
-            for field in fft:
-                child_path = path + "/" + field
-                # print(child_path)
-                if any((x+"/" in child_path or x == child_path) for x in IGNORE_FIELDS):
-                    continue
-                self.introspect(getattr(msg, field), child_path, result_dict, no_data)
-        except AttributeError:
-            # NOT A ROS MSG 
-            # is terminal branch
-            if isinstance(msg, NUMERIC_TYPES):
-                result_dict[path] = None if no_data else msg
 
     def get_qos(self, topic_name):
         topic_info = self._node.get_publishers_info_by_topic(topic_name)
@@ -89,25 +70,22 @@ class MultiSubscriber(Node):
     def get_info_msg(self):
         return self._info_msg
 
-    def add_subscriber(self, handler_fn, topic_name, topic_type=None):
+    def add_subscriber(self, handler_fn, topic_name, topic_type):
         if topic_name in self._subscribers:
             if self._subscribers[topic_name] != None:
                 self._info_msg = f"There is already an existing subscriber for topic '{topic_name}'"
-                return None
+                return False
 
         try:
-            tname, ttype = self.validate_topic(topic_name, topic_type)
-            self._subscribers[topic_name] = IntrospectiveSubscriber(self, tname, ttype, handler_fn)
-            self._info_msg = f"Successfully added subscriber to topic '{tname}' of type '{ttype}'"
-            d = {}
-            self._subscribers[topic_name].introspect(ttype(), "", d, no_data=True)
-            return d
+            self._subscribers[topic_name] = IntrospectiveSubscriber(self, topic_name, topic_type, handler_fn)
+            self._info_msg = f"Successfully added subscriber to topic '{topic_name}' of type '{topic_type}'"
+            return True
         except Exception as e:
             self._info_msg = f"[Subscription Failure]: {e}"
-            return None
+            return False
 
         self._info_msg = f"Unknown error when creating subscriber to topic '{topic_name}'"
-        return None
+        return False
 
     def remove_subscriber(self, topic_name):
         if topic_name in self._subscribers:

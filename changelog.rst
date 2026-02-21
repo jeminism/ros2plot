@@ -4,7 +4,8 @@
 
 0.3.0
 ---
-
+* Implement topic handler approach. Current level of introspetion is handled by a default topic handler.
+    * Unique handlers can be designed for each message type as required in future.
 
 0.2.2
 ---
