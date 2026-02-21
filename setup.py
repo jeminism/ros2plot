@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 package_name = 'ros2plot'
 setup(
     name=package_name,
-    version='0.2.2',
+    version='0.3.0',
     packages=find_packages(),
     install_requires=[
         "asciimatics>=1.15,<2.0",       # latest 1.x series; 2.x not yet released

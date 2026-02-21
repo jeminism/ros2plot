@@ -2,6 +2,10 @@
 ## ros2plot Changelog ##
 ########################
 
+0.3.0
+---
+
+
 0.2.2
 ---
 * Implement dynamic QOS in subscriber
