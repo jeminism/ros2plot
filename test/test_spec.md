@@ -1,0 +1,1210 @@
+# Application Overview
+
+The ros2plot package is a ROS 2 application designed to visualize data from ROS topics or CSV files in an ASCII art interface. It supports real-time plotting of 2D data and provides interactive features such as zooming, inspecting data points, and selecting fields.
+
+## Core Components
+
+1. **Main File ( main.py )**: 
+    
+    Manages the Application and ROS layers. Initializes the classes and handles threading implementations which allow for async topic subscription and plot management.
+
+
+2. **Application Class ( Ros2Plot.py )**:
+
+    Inherits from RosPlotDataHandler and manages the plotting logic. 
+    
+    Orchestrates the entire application UI of plots, axis, legends, selectors, and inspectors.
+    Supports top level user inputs to trigger the various effects and widgets to support zooming, inspection, plot display etc.
+    
+3. **Widgets ( widgets Directory )**:
+
+    Contains various widgets used in the plot interface. Custom widgets: 
+    - Legend
+    - Selector
+    - TextInput
+    - TextLabel
+
+    are used to display information and controls.
+
+4. **Data Handling ( utils Directory )**:
+
+    Contains utility functions for data processing, such as reading CSV files, handling message types, and managing plot data.
+
+    GraphConfigs, PlotData, and RosPlotDataHandler
+    are essential for storing and updating plot configurations and data.
+
+5. **Graph Effects ( effects Directory )**:
+
+    Defines various graphical effects used in the plot interface. Custom effects:
+    - GraphEffect
+    - GraphAxis
+    - Plot 
+    - GraphInspector
+    - GraphZoneSelector 
+    
+    handle the rendering of different parts of the plot and its inspection mechanisms.
+
+6. **Message Handlers ( message_handlers.py )**:
+
+    Manages message processing for different ROS topics.
+    Provides a default handler and allows for registration of custom handlers.
+
+7. **Multi-Subscriber ( multisub.py )**:
+
+    Manages multiple subscribers to ROS topics.
+    Handles QoS settings and provides methods to add and remove subscribers.
+
+## Test Specifications
+### 1. Ros2PlotDataHandler
+
+- **Test 1: Initialize with Default CSV X Key**
+  - Description: Ensure that the default CSV X key is set correctly.
+  - Steps:
+    - Create an instance of `Ros2PlotDataHandler` with a default CSV X key.
+    - Verify that the `default_csv_x` attribute is set to the expected value.
+
+- **Test 2: Initialize with Custom CSV X Key**
+  - Description: Ensure that the custom CSV X key is set correctly.
+  - Steps:
+    - Create an instance of `Ros2PlotDataHandler` with a custom CSV X key.
+    - Verify that the `default_csv_x` attribute is set to the expected value.
+
+- **Test 3: Initialize with No CSV X Key**
+  - Description: Ensure that the default CSV X key is used when no custom CSV X key is provided.
+  - Steps:
+    - Create an instance of `Ros2PlotDataHandler` with no CSV X key.
+    - Verify that the `default_csv_x` attribute is set to the expected value.
+
+- **Test 4: Clear Latest Data**
+  - Description: Ensure that the `clear_latest_data` method clears the latest data correctly.
+  - Steps:
+    - Create an instance of `Ros2PlotDataHandler`.
+    - Add some data to the handler.
+    - Call `clear_latest_data`.
+    - Verify that the latest data is cleared.
+
+- **Test 5: Add Data to Existing Field**
+  - Description: Ensure that data is added correctly to an existing field.
+  - Steps:
+    - Create an instance of `Ros2PlotDataHandler`.
+    - Add data to an existing field.
+    - Verify that the data is added correctly to the field.
+
+- **Test 6: Add Data to New Field**
+  - Description: Ensure that data is added correctly to a new field.
+  - Steps:
+    - Create an instance of `Ros2PlotDataHandler`.
+    - Add data to a new field.
+    - Verify that the data is added correctly to the new field.
+
+- **Test 7: Update Data Queue**
+  - Description: Ensure that the data queue is updated correctly.
+  - Steps:
+    - Create an instance of `Ros2PlotDataHandler`.
+    - Add data to the data queue.
+    - Verify that the data queue is updated correctly.
+
+- **Test 8: Process Topic Update**
+  - Description: Ensure that topic updates are processed correctly.
+  - Steps:
+    - Create an instance of `Ros2PlotDataHandler`.
+    - Add data to a topic.
+    - Verify that the topic update is processed correctly.
+
+### 2. MultiSubscriber
+- **Test 1: Add Subscriber with Valid Topic**
+  - Description: Ensure that a subscriber is added correctly with a valid topic.
+  - Steps:
+    - Create an instance of `MultiSubscriber`.
+    - Add a subscriber with a valid topic.
+    - Verify that the subscriber is added correctly.
+- **Test 2: Add Subscriber with Invalid Topic**
+  - Description: Ensure that adding a subscriber with an invalid topic fails.
+  - Steps:
+    - Create an instance of `MultiSubscriber`.
+    - Add a subscriber with an invalid topic.
+    - Verify that the subscriber is not added and an error message is provided.
+- **Test 3: Remove Subscriber**
+  - Description: Ensure that a subscriber is removed correctly.
+  - Steps:
+    - Create an instance of `MultiSubscriber`.
+    - Add a subscriber.
+    - Remove the subscriber.
+    - Verify that the subscriber is removed correctly.
+- **Test 4: Validate Topic**
+  - Description: Ensure that topic validation returns the correct topic and type.
+  - Steps:
+    - Create an instance of `MultiSubscriber`.
+    - Validate a topic.
+    - Verify that the topic and type are returned correctly.
+- **Test 5: Get Info Message**
+  - Description: Ensure that the info message is returned correctly.
+  - Steps:
+    - Create an instance of `MultiSubscriber`.
+    - Add a subscriber.
+    - Remove the subscriber.
+    - Verify that the info message is returned correctly.
+
+### 3. Ros2Plot
+- **Test 1: Initialize with Default CSV X Key**
+  - Description: Ensure that the default CSV X key is set correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Verify that the `default_csv_x` attribute is set to the expected value.
+- **Test 2: Initialize with Custom CSV X Key**
+  - Description: Ensure that the custom CSV X key is set correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Verify that the `default_csv_x` attribute is set to the expected value.
+- **Test 3: Initialize with No CSV X Key**
+  - Description: Ensure that the default CSV X key is used when no custom CSV X key is provided.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Verify that the `default_csv_x` attribute is set to the expected value.
+- **Test 4: Update Draw Offsets**
+  - Description: Ensure that the draw offsets are updated correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Update the draw offsets.
+    - Verify that the draw offsets are updated correctly.
+- **Test 5: Update Graph Config**
+  - Description: Ensure that the graph config is updated correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Update the graph config.
+    - Verify that the graph config is updated correctly.
+- **Test 6: Update Info Message**
+  - Description: Ensure that the info message is updated correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Update the info message.
+    - Verify that the info message is updated correctly.
+- **Test 7: Handle Text Input**
+  - Description: Ensure that text input is handled correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Handle text input.
+    - Verify that the text input is handled correctly.
+- **Test 8: Add Subscriber**
+  - Description: Ensure that a subscriber is added correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Add a subscriber.
+    - Verify that the subscriber is added correctly.
+- **Test 9: Remove Subscriber**
+  - Description: Ensure that a subscriber is removed correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Add a subscriber.
+    - Remove the subscriber.
+    - Verify that the subscriber is removed correctly.
+- **Test 10: Show Legend**
+  - Description: Ensure that the legend is shown correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Show the legend.
+    - Verify that the legend is shown correctly.
+- **Test 11: Show Configurator**
+  - Description: Ensure that the configurator is shown correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Show the configurator.
+    - Verify that the configurator is shown correctly.
+- **Test 12: Show Selector**
+  - Description: Ensure that the selector is shown correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Show the selector.
+    - Verify that the selector is shown correctly.
+- **Test 13: Show Inspector**
+  - Description: Ensure that the inspector is shown correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Show the inspector.
+    - Verify that the inspector is shown correctly.
+- **Test 14: Show Zoom**
+  - Description: Ensure that the zoom is shown correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Show the zoom.
+    - Verify that the zoom is shown correctly.
+- **Test 15: Show Plots**
+  - Description: Ensure that plots are shown correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Add some plots.
+    - Show the plots.
+    - Verify that the plots are shown correctly.
+- **Test 16: Handle Event**
+  - Description: Ensure that events are handled correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Handle an event.
+    - Verify that the event is handled correctly.
+- **Test 17: Handle Display Controls**
+  - Description: Ensure that display controls are handled correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Handle display controls.
+    - Verify that the display controls are handled correctly.
+- **Test 18: Update Info Message**
+  - Description: Ensure that the info message is updated correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Update the info message.
+    - Verify that the info message is updated correctly.
+- **Test 19: Update Tooltip**
+  - Description: Ensure that the tooltip is updated correctly.
+  - Steps:
+    - Create an instance of `Ros2Plot`.
+    - Update the tooltip.
+    - Verify that the tooltip is updated correctly.
+### 4. GraphConfigs
+- **Test 1: Initialize with Default Values**
+  - Description: Ensure that the graph config is initialized with default values.
+  - Steps:
+    - Create an instance of `GraphConfigs`.
+    - Verify that the graph config is initialized with default values.
+- **Test 2: Update Width**
+  - Description: Ensure that the width is updated correctly.
+  - Steps:
+    - Create an instance of `GraphConfigs`.
+    - Update the width.
+    - Verify that the width is updated correctly.
+- **Test 3: Update Height**
+  - Description: Ensure that the height is updated correctly.
+  - Steps:
+    - Create an instance of `GraphConfigs`.
+    - Update the height.
+    - Verify that the height is updated correctly.
+- **Test 4: Update Y Min Value**
+  - Description: Ensure that the Y min value is updated correctly.
+  - Steps:
+    - Create an instance of `GraphConfigs`.
+    - Update the Y min value.
+    - Verify that the Y min value is updated correctly.
+- **Test 5: Update Y Max Value**
+  - Description: Ensure that the Y max value is updated correctly.
+  - Steps:
+    - Create an instance of `GraphConfigs`.
+    - Update the Y max value.
+    - Verify that the Y max value is updated correctly.
+- **Test 6: Update X Min Value**
+  - Description: Ensure that the X min value is updated correctly.
+  - Steps:
+    - Create an instance of `GraphConfigs`.
+    - Update the X min value.
+    - Verify that the X min value is updated correctly.
+- **Test 7: Update X Max Value**
+  - Description: Ensure that the X max value is updated correctly.
+  - Steps:
+    - Create an instance of `GraphConfigs`.
+    - Update the X max value.
+    - Verify that the X max value is updated correctly.
+- **Test 8: Update Pause**
+  - Description: Ensure that the pause flag is updated correctly.
+  - Steps:
+    - Create an instance of `GraphConfigs`.
+    - Update the pause flag.
+    - Verify that the pause flag is updated correctly.
+### 5. PlotData
+- **Test 1: Initialize with Default Values**
+  - Description: Ensure that the plot data is initialized with default values.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Verify that the plot data is initialized with default values.
+- **Test 2: Append Data**
+  - Description: Ensure that data is appended correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Append data.
+    - Verify that the data is appended correctly.
+- **Test 3: Clear Latest Data**
+  - Description: Ensure that the latest data is cleared correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Append data.
+    - Clear the latest data.
+    - Verify that the latest data is cleared.
+- **Test 4: Set Configs**
+  - Description: Ensure that the configs are set correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set configs.
+    - Verify that the configs are set correctly.
+- **Test 5: Get Minimum**
+  - Description: Ensure that the minimum value is retrieved correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Append data.
+    - Get the minimum value.
+    - Verify that the minimum value is retrieved correctly.
+- **Test 6: Get Maximum**
+  - Description: Ensure that the maximum value is retrieved correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Append data.
+    - Get the maximum value.
+    - Verify that the maximum value is retrieved correctly.
+- **Test 7: Get Colour**
+  - Description: Ensure that the colour is retrieved correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set a colour.
+    - Get the colour.
+    - Verify that the colour is retrieved correctly.
+- **Test 8: Set Colour**
+  - Description: Ensure that the colour is set correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set a colour.
+    - Verify that the colour is set correctly.
+- **Test 9: Get Visible**
+  - Description: Ensure that the visible flag is retrieved correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set the visible flag.
+    - Get the visible flag.
+    - Verify that the visible flag is retrieved correctly.
+- **Test 10: Set Visible**
+  - Description: Ensure that the visible flag is set correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set the visible flag.
+    - Verify that the visible flag is set correctly.
+- **Test 11: Get Interpolate**
+  - Description: Ensure that the interpolate flag is retrieved correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set the interpolate flag.
+    - Get the interpolate flag.
+    - Verify that the interpolate flag is retrieved correctly.
+- **Test 12: Set Interpolate**
+  - Description: Ensure that the interpolate flag is set correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set the interpolate flag.
+    - Verify that the interpolate flag is set correctly.
+- **Test 13: Get High Def**
+  - Description: Ensure that the high def flag is retrieved correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set the high def flag.
+    - Get the high def flag.
+    - Verify that the high def flag is retrieved correctly.
+- **Test 14: Set High Def**
+  - Description: Ensure that the high def flag is set correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set the high def flag.
+    - Verify that the high def flag is set correctly.
+- **Test 15: Get Plot Mean**
+  - Description: Ensure that the plot mean flag is retrieved correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set the plot mean flag.
+    - Get the plot mean flag.
+    - Verify that the plot mean flag is retrieved correctly.
+- **Test 16: Set Plot Mean**
+  - Description: Ensure that the plot mean flag is set correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set the plot mean flag.
+    - Verify that the plot mean flag is set correctly.
+- **Test 17: Get Data**
+  - Description: Ensure that the data is retrieved correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Append data.
+    - Get the data.
+    - Verify that the data is retrieved correctly.
+- **Test 18: Set Data**
+  - Description: Ensure that the data is set correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set data.
+    - Verify that the data is set correctly.
+- **Test 19: Get X Key**
+  - Description: Ensure that the X key is retrieved correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set an X key.
+    - Get the X key.
+    - Verify that the X key is retrieved correctly.
+- **Test 20: Set X Key**
+  - Description: Ensure that the X key is set correctly.
+  - Steps:
+    - Create an instance of `PlotData`.
+    - Set an X key.
+    - Verify that the X key is set correctly.
+### 6. GraphMath
+- **Test 1: Get Mapped Value**
+  - Description: Ensure that the mapped value is calculated correctly.
+  - Steps:
+    - Create an instance of `GraphMath`.
+    - Calculate the mapped value for a value that is within the range.
+    - Verify that the calculated mapped value is within the expected range.
+- **Test 2: Get Mapped Value (Outside Range)**
+  - Description: Ensure that the mapped value is calculated correctly for a value outside the range.
+  - Steps:
+    - Create an instance of `GraphMath`.
+    - Calculate the mapped value for a value that is less than the minimum value.
+    - Verify that the calculated mapped value is equal to the minimum value.
+    - Calculate the mapped value for a value that is greater than the maximum value.
+    - Verify that the calculated mapped value is equal to the maximum value.
+- **Test 3: Min Max**
+  - Description: Ensure that the min max is calculated correctly for a list of values.
+  - Steps:
+    - Create an instance of `GraphMath`.
+    - Calculate the min max for a list of values.
+    - Verify that the calculated min is the minimum value in the list.
+    - Verify that the calculated max is the maximum value in the list.
+- **Test 4: Min Max (Edge Case)**
+  - Description: Ensure that the min max is calculated correctly for a list with a single element.
+  - Steps:
+    - Create an instance of `GraphMath`.
+    - Calculate the min max for a list with a single element.
+    - Verify that the calculated min and max are both equal to the single element.
+- **Test 5: Min Max (Empty List)**
+  - Description: Ensure that the min max is calculated correctly for an empty list.
+  - Steps:
+    - Create an instance of `GraphMath`.
+    - Calculate the min max for an empty list.
+    - Verify that a `TypeError` is raised.
+- **Test 6: Multi Min Max**
+  - Description: Ensure that the multi min max is calculated correctly for a list of lists.
+  - Steps:
+    - Create an instance of `GraphMath`.
+    - Calculate the multi min max for a list of lists.
+    - Verify that the calculated min is the minimum value across all lists.
+    - Verify that the calculated max is the maximum value across all lists.
+- **Test 7: Bresenham**
+  - Description: Ensure that the Bresenham line generation is correct.
+  - Steps:
+    - Create an instance of `GraphMath`.
+    - Generate Bresenham lines for different slopes and intercepts.
+    - Verify that the generated lines are correct and cover the expected range.
+
+### 7. MessageHandlers
+- **Test 1: Process Numeric Message**
+  - Description: Ensure that numeric messages are processed correctly.
+  - Steps:
+    - Create a mock ROS message with numeric data.
+    - Use the processor function from MessageHandlers to process the message.
+    - Verify that the processed data is correctly mapped to a dictionary of fields and values.
+- **Test 2: Process Non-Numeric Message**
+  - Description: Ensure that non-numeric messages are ignored.
+  - Steps:
+    - Create a mock ROS message with non-numeric data.
+    - Use the processor function from MessageHandlers to process the message.
+    - Verify that the processed data is an empty dictionary.
+- **Test 3: Process Multiple Numeric Fields**
+  - Description: Ensure that multiple numeric fields are processed correctly.
+  - Steps:
+    - Create a mock ROS message with multiple numeric fields.
+    - Use the processor function from MessageHandlers to process the message.
+    - Verify that all numeric fields are correctly mapped to the dictionary.
+- **Test 4: Process Message with No Fields**
+  - Description: Ensure that a message with no fields is ignored.
+  - Steps:
+    - Create a mock ROS message with no fields.
+    - Use the processor function from MessageHandlers to process the message.
+    - Verify that the processed data is an empty dictionary.
+- **Test 5: Process Message with No Numeric Fields**
+  - Description: Ensure that a message with no numeric fields is ignored.
+  - Steps:
+    - Create a mock ROS message with no numeric fields.
+    - Use the processor function from MessageHandlers to process the message.
+    - Verify that the processed data is an empty dictionary.
+- **Test 6: Process Message with Only Non-Numeric Fields**
+  - Description: Ensure that a message with only non-numeric fields is ignored.
+  - Steps:
+    - Create a mock ROS message with only non-numeric fields.
+    - Use the processor function from MessageHandlers to process the message.
+    - Verify that the processed data is an empty dictionary.
+### 8. Grid
+- **Test 1: Initialize with Valid Dimensions**
+  - Description: Ensure that the grid is initialized correctly with valid dimensions.
+  - Steps:
+    - Create an instance of `Grid` with valid width and height.
+    - Verify that the grid is initialized with the correct dimensions.
+- **Test 2: Initialize with Zero Dimensions**
+  - Description: Ensure that the grid is initialized correctly with zero dimensions.
+  - Steps:
+    - Create an instance of `Grid` with zero width and height.
+    - Verify that the grid is initialized with the correct dimensions.
+- **Test 3: Set and Get Value**
+  - Description: Ensure that values can be set and retrieved correctly.
+  - Steps:
+    - Create an instance of `Grid`.
+    - Set a value at a specific index.
+    - Retrieve the value at the same index.
+    - Verify that the retrieved value matches the set value.
+- **Test 4: Set and Get Value Out of Bounds**
+  - Description: Ensure that setting and getting values out of bounds raises an exception.
+  - Steps:
+    - Create an instance of `Grid`.
+    - Attempt to set a value at an index out of bounds.
+    - Verify that an exception is raised.
+    - Attempt to retrieve a value at an index out of bounds.
+    - Verify that an exception is raised.
+- **Test 5: Clear Grid**
+  - Description: Ensure that the grid can be cleared correctly.
+  - Steps:
+    - Create an instance of `Grid`.
+    - Set some values in the grid.
+    - Clear the grid.
+    - Verify that all values in the grid are set to `None`.
+- **Test 6: Get Index from XY**
+  - Description: Ensure that the index can be calculated correctly from XY coordinates.
+  - Steps:
+    - Create an instance of `Grid`.
+    - Calculate the index for a specific XY coordinate.
+    - Verify that the calculated index matches the expected index.
+- **Test 7: Get XY from Index**
+  - Description: Ensure that the XY coordinates can be calculated correctly from an index.
+  - Steps:
+    - Create an instance of `Grid`.
+    - Calculate the XY coordinates for a specific index.
+    - Verify that the calculated XY coordinates match the expected coordinates.
+### 9. KeyCodes
+- **Test 1: Get Key Code for Left Arrow**
+  - Description: Ensure that the left arrow key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the left arrow key.
+    - Verify that the key code is KEY_CODES.LEFT.
+- **Test 2: Get Key Code for Right Arrow**
+  - Description: Ensure that the right arrow key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the right arrow key.
+    - Verify that the key code is KEY_CODES.RIGHT.
+- **Test 3: Get Key Code for Up Arrow**
+  - Description: Ensure that the up arrow key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the up arrow key.
+    - Verify that the key code is KEY_CODES.UP.
+- **Test 4: Get Key Code for Down Arrow**
+  - Description: Ensure that the down arrow key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the down arrow key.
+    - Verify that the key code is KEY_CODES.DOWN.
+- **Test 5: Get Key Code for Enter**
+  - Description: Ensure that the enter key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the enter key.
+    - Verify that the key code is KEY_CODES.ENTER.
+- **Test 6: Get Key Code for Tab**
+  - Description: Ensure that the tab key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the tab key.
+    - Verify that the key code is KEY_CODES.TAB.
+- **Test 7: Get Key Code for Ctrl + Left Arrow**
+  - Description: Ensure that the Ctrl + left arrow key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the Ctrl + left arrow key.
+    - Verify that the key code is KEY_CODES.CTRL_LEFT.
+- **Test 8: Get Key Code for Ctrl + Right Arrow**
+  - Description: Ensure that the Ctrl + right arrow key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the Ctrl + right arrow key.
+    - Verify that the key code is KEY_CODES.CTRL_RIGHT.
+- **Test 9: Get Key Code for Ctrl + Up Arrow**
+  - Description: Ensure that the Ctrl + up arrow key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the Ctrl + up arrow key.
+    - Verify that the key code is KEY_CODES.CTRL_UP.
+- **Test 10: Get Key Code for Ctrl + Down Arrow**
+  - Description: Ensure that the Ctrl + down arrow key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the Ctrl + down arrow key.
+    - Verify that the key code is KEY_CODES.CTRL_DOWN.
+- **Test 11: Get Key Code for Alt + Enter**
+  - Description: Ensure that the Alt + enter key code is correctly retrieved.
+  - Steps:
+    - Retrieve the key code for the Alt + enter key.
+    - Verify that the key code is KEY_CODES.ALT_ENTER.
+### 10. MemoryBoundedDeque
+- **Test 1: Initialize with Default Configurations**
+  - Description: Ensure that the MemoryBoundedDeque
+ is initialized with default configurations.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque
+.
+    - Verify that the max_fraction and trim_fraction are set to the default values (0.02 and 0.05, respectively).
+- **Test 2: Initialize with Custom Configurations**
+  - Description: Ensure that the MemoryBoundedDeque is initialized with custom configurations.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque with custom max_fraction and 
+trim_fraction.
+    - Verify that the max_fraction and trim_fraction are set to the custom values.
+- **Test 3: Add Data (No Overflow)**
+  - Description: Ensure that data can be added to the deque without causing an overflow.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data until the deque is full.
+    - Verify that the deque contains the expected number of elements and that the memory usage is within the expected limits.
+- **Test 4: Add Data (Overflow)**
+  - Description: Ensure that data can be added to the deque when it is full, causing an overflow.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data until the deque is full.
+    - Add additional data.
+    - Verify that the deque contains the expected number of elements and that the memory usage is within the expected limits.
+- **Test 5: Clear Latest Data**
+  - Description: Ensure that the clear_latest method clears the latest data correctly.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data.
+    - Call clear_latest.
+    - Verify that the latest data is cleared.
+- **Test 6: Iterate Latest Data**
+  - Description: Ensure that the iterate_latest method iterates over the latest data correctly.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data.
+    - Call iterate_latest with a callback function.
+    - Verify that the callback function is called with the expected data.
+- **Test 7: Get Latest Data**
+  - Description: Ensure that the latest method returns the latest data correctly.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data.
+    - Call latest.
+    - Verify that the returned data is the same as the latest data.
+- **Test 8: Get Values**
+  - Description: Ensure that the values method returns the current values in the deque correctly.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data.
+    - Call values.
+    - Verify that the returned list matches the current deque contents.
+- **Test 9: Append Data (Existing Data)**
+  - Description: Ensure that appending data to the deque updates the existing data correctly.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data.
+    - Append more data.
+    - Verify that the existing data is updated correctly.
+- **Test 10: Append Data (New Data)**
+  - Description: Ensure that appending new data to the deque adds the new data correctly.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data.
+    - Append new data.
+    - Verify that the new data is added correctly.
+- **Test 11: Trim Data**
+  - Description: Ensure that the trim method trims the deque correctly.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data.
+    - Trim the deque.
+    - Verify that the deque is trimmed correctly.
+- **Test 12: Should Trim**
+  - Description: Ensure that the
+should_trim
+ method correctly determines if trimming is needed.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Add data until the deque is full.
+    - Verify that should_trim returns True.
+    - Add more data and verify that should_trim returns False.
+- **Test 13: Get Lock**
+  - Description: Ensure that the lock property returns the correct lock object.
+  - Steps:
+    - Create an instance of MemoryBoundedDeque.
+    - Verify that the lock property is an instance of threading.Lock.
+### 11. GraphEffect
+- **Test 1: Initialize with Default Draw Offsets**
+  - Description: Ensure that the graph effect is initialized with default draw offsets.
+  - Steps:
+    - Create an instance of `GraphEffect` with default draw offsets.
+    - Verify that the offsets attribute is set to the default values.
+- **Test 2: Initialize with Custom Draw Offsets**
+  - Description: Ensure that the graph effect is initialized with custom draw offsets.
+  - Steps:
+    - Create an instance of `GraphEffect` with custom draw offsets.
+    - Verify that the offsets attribute is set to the custom values.
+- **Test 3: Reset Method**
+  - Description: Ensure that the `reset` method clears the screen.
+  - Steps:
+    - Create an instance of `GraphEffect`.
+    - Call the `reset` method.
+    - Verify that the screen is cleared.
+- **Test 4: Stop Frame Method**
+  - Description: Ensure that the `stop_frame` method returns the correct value.
+  - Steps:
+    - Create an instance of `GraphEffect`.
+    - Call the `stop_frame` method.
+    - Verify that the returned value is as expected.
+- **Test 5: E Print Method**
+  - Description: Ensure that the `e_print` method prints text at the specified position with the specified color.
+  - Steps:
+    - Create an instance of `GraphEffect`.
+    - Call the `e_print` method with some text and position.
+    - Verify that the text is printed at the specified position with the specified color.
+- **Test 6: E Clear Method**
+  - Description: Ensure that the `e_clear` method clears the screen.
+  - Steps:
+    - Create an instance of `GraphEffect`.
+    - Call the `e_clear` method.
+    - Verify that the screen is cleared.
+- **Test 7: Update Method**
+  - Description: Ensure that the `update` method calls the `_update` method with the correct frame number.
+  - Steps:
+    - Create an instance of `GraphEffect`.
+    - Call the `update` method.
+    - Verify that the `_update` method is called with the correct frame number.
+- **Test 8: Draw Method**
+  - Description: Ensure that the `draw` method is overridden and implemented correctly.
+  - Steps:
+    - Create an instance of `GraphEffect`.
+    - Override the `draw` method.
+    - Call the `draw` method.
+    - Verify that the `draw` method is called and implemented correctly.
+### 12. GraphAxis
+- **Test 1: Initialize with Default Values**
+  - Description: Ensure that the graph axis is initialized with default values.
+  - Steps:
+    - Create an instance of `GraphAxis` with default values.
+    - Verify that the cfg and offsets attributes are set to the default values.
+- **Test 2: Initialize with Custom Values**
+  - Description: Ensure that the graph axis is initialized with custom values.
+  - Steps:
+    - Create an instance of `GraphAxis` with custom values.
+    - Verify that the cfg and offsets attributes are set to the custom values.
+- **Test 3: Draw Method**
+  - Description: Ensure that the draw method draws the Y-axis correctly.
+  - Steps:
+    - Create an instance of `GraphAxis`.
+    - Set the cfg and offsets attributes.
+    - Call the draw method.
+    - Verify that the Y-axis is drawn correctly.
+- **Test 4: Draw Method (Horizontal Axis)**
+  - Description: Ensure that the draw method draws the X-axis correctly.
+  - Steps:
+    - Create an instance of `GraphAxis`.
+    - Set the cfg and offsets attributes.
+    - Call the draw method.
+    - Verify that the X-axis is drawn correctly.
+### 13. Plot
+- Test 1: Initialize with Default Values
+  - Description: Ensure that the graph plot is initialized with default values.
+  - Steps:
+    - Create an instance of `GraphPlot` with default values.
+    - Verify that the db and y_key attributes are set to the default values.
+- Test 2: Initialize with Custom Values
+  - Description: Ensure that the graph plot is initialized with custom values.
+  - Steps:
+    - Create an instance of `GraphPlot` with custom values.
+    - Verify that the db and y_key attributes are set to the custom values.
+- Test 3: Set Data Key Method
+  - Description: Ensure that the set_data_key method sets the correct data key.
+  - Steps:
+    - Create an instance of `GraphPlot`.
+    - Set a data key.
+    - Verify that the plt attribute is set to the correct data key.
+- Test 4: Lookup Data Method
+  - Description: Ensure that the lookup_data method retrieves the correct data.
+  - Steps:
+    - Create an instance of `GraphPlot`.
+    - Set some data.
+    - Call the lookup_data method.
+    - Verify that the correct data is retrieved.
+- Test 5: Draw Method
+  - Description: Ensure that the draw method draws the plot correctly.
+  - Steps:
+    - Create an instance of `GraphPlot`.
+    - Set some data.
+    - Call the draw method.
+    - Verify that the plot is drawn correctly.
+- Test 6: Generate Scanlines Method
+  - Description: Ensure that the generate_scanlines method generates scanlines correctly.
+  - Steps:
+    - Create an instance of `GraphPlot`.
+    - Set some data.
+    - Call the generate_scanlines method.
+    - Verify that the scanlines are generated correctly.
+- Test 7: Shift Scanlines Method
+  - Description: Ensure that the shift_scanlines method shifts scanlines correctly.
+  - Steps:
+    - Create an instance of `GraphPlot`.
+    - Set some data.
+    - Call the shift_scanlines method.
+    - Verify that the scanlines are shifted correctly.
+- Test 8: Update Grid Method
+  - Description: Ensure that the update_grid method updates the grid correctly.
+  - Steps:
+    - Create an instance of `GraphPlot`.
+    - Set some data.
+    - Call the update_grid method.
+    - Verify that the grid is updated correctly.
+- Test 9: Do Plot Method
+  - Description: Ensure that the do_plot method plots the plot correctly.
+  - Steps:
+    - Create an instance of `GraphPlot`.
+    - Set some data.
+    - Call the do_plot method.
+    - Verify that the plot is plotted correctly.
+### 14. ColourPalette
+- **Test 1: Initialize Default Palette**
+  - Description: Ensure that the default palette is initialized correctly.
+  - Steps:
+    - Create an instance of ColourPalette.
+    - Verify that the default palette contains the expected colors.
+- **Test 2: Initialize Custom Palette**
+  - Description: Ensure that a custom palette is initialized correctly.
+  - Steps:
+    - Create an instance of ColourPalette with a custom list of colors.
+    - Verify that the custom palette contains the expected colors.
+- **Test 3: Get Color by Index**
+  - Description: Ensure that a color is retrieved correctly by index.
+  - Steps:
+    - Create an instance of ColourPalette.
+    - Retrieve a color by index.
+    - Verify that the retrieved color matches the expected color.
+- **Test 4: Get Color by Name**
+  - Description: Ensure that a color is retrieved correctly by name.
+  - Steps:
+    - Create an instance of ColourPalette.
+    - Retrieve a color by name.
+    - Verify that the retrieved color matches the expected color.
+- **Test 5: Get Color by Invalid Name**
+  - Description: Ensure that an error is raised when retrieving a color by an invalid name.
+  - Steps:
+    - Create an instance of ColourPalette.
+    - Attempt to retrieve a color by an invalid name.
+    - Verify that a KeyError is raised.
+- **Test 6: Get All Colors**
+  - Description: Ensure that all colors in the palette are retrieved correctly.
+  - Steps:
+    - Create an instance of ColourPalette.
+    - Retrieve all colors.
+    - Verify that the retrieved colors match the expected colors.
+### 15. csvio
+- **Test 1: Read CSV File**
+  - Description: Ensure that a CSV file is read correctly.
+  - Steps:
+    - Create an instance of CSVIO.
+    - Read a CSV file.
+    - Verify that the data is read correctly and matches the expected format.
+- **Test 2: Write CSV File**
+  - Description: Ensure that data is written correctly to a CSV file.
+  - Steps:
+    - Create an instance of CSVIO.
+    - Write data to a CSV file.
+    - Verify that the data is written correctly to the file.
+- **Test 3: Read CSV with Empty File**
+  - Description: Ensure that an empty CSV file is read correctly.
+  - Steps:
+    - Create an instance of CSVIO.
+    - Read an empty CSV file.
+    - Verify that the data is read correctly and matches the expected format (an empty list).
+- **Test 4: Read CSV with No Headers**
+  - Description: Ensure that a CSV file with no headers is read correctly.
+  - Steps:
+    - Create an instance of CSVIO.
+    - Read a CSV file with no headers.
+    - Verify that the data is read correctly and matches the expected format.
+- **Test 5: Read CSV with Invalid Data**
+  - Description: Ensure that an error is raised when reading a CSV file with invalid data.
+  - Steps:
+    - Create an instance of CSVIO.
+    - Attempt to read a CSV file with invalid data.
+    - Verify that a ValueError is raised.
+- **Test 6: Read CSV with Multiple Headers**
+  - Description: Ensure that a CSV file with multiple headers is read correctly.
+  - Steps:
+    - Create an instance of CSVIO.
+    - Read a CSV file with multiple headers.
+    - Verify that the data is read correctly and matches the expected format.
+### 16. GraphInspector
+- **Test 1: Initialize with Default Values**
+  - Description: Ensure that the GraphInspector is initialized with default values.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Verify that the x_value is None.
+    - Verify that the inspection_data dictionary is empty.
+    - Verify that the matched_pts dictionary is empty.
+    - Verify that last_x_min, last_x_max, last_y_min, and last_y_max are None.
+- **Test 2: Set X Value**
+  - Description: Ensure that the x_value is set correctly.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Set the x_value to a specific value.
+    - Verify that the x_value is set correctly.
+    - Verify that the inspection_data dictionary is empty.
+    - Verify that the matched_pts dictionary is empty.
+    - Verify that last_x_min, last_x_max, last_y_min, and last_y_max are None.
+- **Test 3: Get X Value**
+  - Description: Ensure that the x_value is retrieved correctly.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Set the x_value to a specific value.
+    - Verify that the x_value is retrieved correctly.
+- **Test 4: Populate Column Values**
+  - Description: Ensure that column values are populated correctly.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Create mock data for y_values and x_values.
+    - Call populate_column_vals.
+    - Verify that the inspection_data dictionary is populated correctly.
+    - Verify that the matched_pts dictionary is empty.
+- **Test 5: Get Matched Pt at X**
+  - Description: Ensure that a matched point is retrieved correctly.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Create mock data for y_values and x_values.
+    - Call populate_column_vals.
+    - Call get_matched_pt_at_x.
+    - Verify that the matched_pts dictionary is populated correctly.
+- **Test 6: Print Matched Pts**
+  - Description: Ensure that matched points are printed correctly.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Create mock data for y_values and x_values.
+    - Call populate_column_vals.
+    - Call get_matched_pt_at_x.
+    - Call print_matched_pts.
+    - Verify that the printed output matches the expected values.
+- **Test 7: Scroll Up X**
+  - Description: Ensure that scrolling up the X-axis works correctly.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Create mock data for y_values and x_values.
+    - Call populate_column_vals.
+    - Call scroll_up_x.
+    - Verify that the x_value is updated correctly.
+- **Test 8: Scroll Down X**
+  - Description: Ensure that scrolling down the X-axis works correctly.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Create mock data for y_values and x_values.
+    - Call populate_column_vals.
+    - Call scroll_down_x.
+    - Verify that the x_value is updated correctly.
+- **Test 9: Scroll X**
+  - Description: Ensure that scrolling the X-axis by a specific step works correctly.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Create mock data for y_values and x_values.
+    - Call populate_column_vals.
+    - Call scroll_x.
+    - Verify that the x_value is updated correctly.
+- **Test 10: Process Event**
+  - Description: Ensure that events are processed correctly.
+  - Steps:
+    - Create an instance of GraphInspector.
+    - Create mock data for y_values and x_values.
+    - Call populate_column_vals.
+    - Call process_event with different key events.
+    - Verify that the x_value is updated correctly.
+### 17. GraphZoomSelector
+- **Test 1: Initialize with Default Values**
+  - Description: Ensure that the GraphZoomSelector is initialized with default values.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Verify that pt_1 and pt_2 are initialized with default values.
+    - Verify that _focus is set to 0.
+    - Verify that last_x_min, last_x_max, last_y_min, and last_y_max are None.
+- **Test 2: Reset**
+  - Description: Ensure that the reset method resets the zoom selector correctly.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Set pt_1 and pt_2 to specific values.
+    - Call reset.
+    - Verify that pt_1 and pt_2 are reset to default values.
+    - Verify that _focus is set to 0.
+    - Verify that last_x_min, last_x_max, last_y_min, and last_y_max are None.
+- **Test 3: Get Points String**
+  - Description: Ensure that the get_points_string method returns the correct string representation of the points.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Set pt_1 and pt_2 to specific values.
+    - Call get_points_string.
+    - Verify that the returned string is correct.
+- **Test 4: Tooltip**
+  - Description: Ensure that the tooltip method returns the correct tooltip message.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Call tooltip.
+    - Verify that the returned tooltip message is correct.
+- **Test 5: Scroll Up X**
+  - Description: Ensure that scrolling up the X-axis works correctly.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Set pt_1 and pt_2 to specific values.
+    - Call scroll_up_x.
+    - Verify that pt_1 and pt_2 are updated correctly.
+- **Test 6: Scroll Down X**
+  - Description: Ensure that scrolling down the X-axis works correctly.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Set pt_1 and pt_2 to specific values.
+    - Call scroll_down_x.
+    - Verify that pt_1 and pt_2 are updated correctly.
+- **Test 7: Scroll Up Y**
+  - Description: Ensure that scrolling up the Y-axis works correctly.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Set pt_1 and pt_2 to specific values.
+    - Call scroll_up_y.
+    - Verify that pt_1 and pt_2 are updated correctly.
+- **Test 8: Scroll Down Y**
+  - Description: Ensure that scrolling down the Y-axis works correctly.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Set pt_1 and pt_2 to specific values.
+    - Call scroll_down_y.
+    - Verify that pt_1 and pt_2 are updated correctly.
+- **Test 9: Move Pt**
+  - Description: Ensure that moving a point works correctly.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Set pt_1 and pt_2 to specific values.
+    - Call move_pt with different values for dx and dy.
+    - Verify that pt_1 and pt_2 are updated correctly.
+- **Test 10: Resize Plot**
+  - Description: Ensure that resizing the plot works correctly.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Set pt_1 and pt_2 to specific values.
+    - Call resize_plot.
+    - Verify that pt_1 and pt_2 are updated correctly.
+- **Test 11: Process Event**
+  - Description: Ensure that events are processed correctly.
+  - Steps:
+    - Create an instance of GraphZoomSelector.
+    - Set pt_1 and pt_2 to specific values.
+    - Call process_event with different key events.
+    - Verify that pt_1 and pt_2 are updated correctly.
+### 18. GraphData
+- **Test 1: Initialize with Default Values**
+  - Description: Ensure that the GraphData is initialized with default values.
+  - Steps:
+    - Create an instance of GraphData.
+    - Verify that the data attribute is an instance of MemoryBoundedDeque with default configurations.
+    - Verify that the x_key attribute is an empty string.
+    - Verify that the visible attribute is False.
+    - Verify that the interpolate attribute is True.
+    - Verify that the high_def attribute is True.
+    - Verify that the plot_mean attribute is False.
+    - Verify that the colour attribute is the default color (COLOURS.DEFAULT).
+- **Test 2: Initialize with Custom Values**
+  - Description: Ensure that the GraphData is initialized with custom values.
+  - Steps:
+    - Create an instance of GraphData with custom values for x_key, visible, interpolate, high_def, plot_mean, and colour.
+    - Verify that the data attribute is an instance of MemoryBoundedDeque with the custom configurations.
+    - Verify that the x_key attribute is set to the custom value.
+    - Verify that the visible attribute is set to the custom value.
+    - Verify that the interpolate attribute is set to the custom value.
+    - Verify that the high_def attribute is set to the custom value.
+    - Verify that the plot_mean attribute is set to the custom value.
+    - Verify that the colour attribute is set to the custom value.
+- **Test 3: Append Data**
+  - Description: Ensure that data is appended correctly to the GraphData.
+  - Steps:
+    - Create an instance of GraphData.
+    - Append some data to the GraphData.
+    - Verify that the data in the data attribute is updated correctly.
+    - Verify that the minimum and maximum attributes are updated correctly.
+    - Verify that the colour attribute is updated correctly if set.
+- **Test 4: Clear Latest Data**
+  - Description: Ensure that the latest data is cleared correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with some data.
+    - Clear the latest data from the GraphData.
+    - Verify that the data attribute is empty.
+    - Verify that the minimum and maximum attributes are reset to math.inf and -math.inf respectively.
+- **Test 5: Set Configs**
+  - Description: Ensure that the configs are set correctly for the GraphData.
+  - Steps:
+    - Create an instance of GraphData.
+    - Set new configurations for the GraphData.
+    - Verify that the configurations are updated correctly.
+- **Test 6: Get Minimum**
+  - Description: Ensure that the minimum value is retrieved correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with some data.
+    - Verify that the minimum value is retrieved correctly.
+- **Test 7: Get Maximum**
+  - Description: Ensure that the maximum value is retrieved correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with some data.
+    - Verify that the maximum value is retrieved correctly.
+- **Test 8: Get Colour**
+  - Description: Ensure that the colour is retrieved correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with a custom colour.
+    - Verify that the colour value is retrieved correctly.
+- **Test 9: Set Colour**
+  - Description: Ensure that the colour is set correctly for the GraphData.
+  - Steps:
+    - Create an instance of GraphData.
+    - Set a new colour for the GraphData.
+    - Verify that the colour value is set correctly.
+- **Test 10: Get Visible**
+  - Description: Ensure that the visible flag is retrieved correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with a visible flag.
+    - Verify that the visible flag is retrieved correctly.
+- **Test 11: Set Visible**
+  - Description: Ensure that the visible flag is set correctly for the GraphData.
+  - Steps:
+    - Create an instance of GraphData.
+    - Set a new visible flag for the GraphData.
+    - Verify that the visible flag is set correctly.
+- **Test 12: Get Interpolate**
+  - Description: Ensure that the interpolate flag is retrieved correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with an interpolate flag.
+    - Verify that the interpolate flag is retrieved correctly.
+- **Test 13: Set Interpolate**
+  - Description: Ensure that the interpolate flag is set correctly for the GraphData.
+  - Steps:
+    - Create an instance of GraphData.
+    - Set a new interpolate flag for the GraphData.
+    - Verify that the interpolate flag is set correctly.
+- **Test 14: Get High Def**
+  - Description: Ensure that the high def flag is retrieved correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with a high def flag.
+    - Verify that the high_def flag is retrieved correctly.
+- **Test 15: Set High Def**
+  - Description: Ensure that the high def flag is set correctly for the GraphData.
+  - Steps:
+    - Create an instance of GraphData.
+    - Set a new high def flag for the GraphData.
+    - Verify that the high_def flag is set correctly.
+- **Test 16: Get Plot Mean**
+  - Description: Ensure that the plot mean flag is retrieved correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with a plot mean flag.
+    - Verify that the plot_mean flag is retrieved correctly.
+- **Test 17: Set Plot Mean**
+  - Description: Ensure that the plot mean flag is set correctly for the GraphData.
+  - Steps:
+    - Create an instance of GraphData.
+    - Set a new plot mean flag for the GraphData.
+    - Verify that the plot_mean flag is set correctly.
+- **Test 18: Get Data**
+  - Description: Ensure that the data is retrieved correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with some data.
+    - Verify that the data attribute is retrieved correctly.
+- **Test 19: Set Data**
+  - Description: Ensure that the data is set correctly for the GraphData.
+  - Steps:
+    - Create an instance of GraphData.
+    - Set new data for the GraphData.
+    - Verify that the data attribute is set correctly.
+- **Test 20: Get X Key**
+  - Description: Ensure that the X key is retrieved correctly from the GraphData.
+  - Steps:
+    - Create an instance of GraphData with a custom X key.
+    - Verify that the x_key attribute is retrieved correctly.
+- **Test 21: Set X Key**
+  - Description: Ensure that the X key is set correctly for the GraphData.
+  - Steps:
+    - Create an instance of GraphData.
+    - Set a new X key for the GraphData.
+    - Verify that the x_key attribute is set correctly.
